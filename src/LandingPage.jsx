@@ -6,6 +6,8 @@ const categories = [
   { label: 'Women', icon: <path d="M12 4 C9 4 7 6.5 7 9.5 C7 12 8.5 14 10.5 14.7 V17 H8.5 V19 H10.5 V21 H13.5 V19 H15.5 V17 H13.5 V14.7 C15.5 14 17 12 17 9.5 C17 6.5 15 4 12 4 Z" /> },
   { label: 'Senior Citizens', icon: <path d="M12 6 C13.5 6 14.5 7 14.5 8.5 C14.5 10 13.5 11 12 11 C10.5 11 9.5 10 9.5 8.5 C9.5 7 10.5 6 12 6 Z M6 20 C6 16 8.5 12.5 12 12.5 C15.5 12.5 18 16 18 20" /> },
   { label: 'General / BPL', icon: <path d="M5 20 V11 L12 6 L19 11 V20 Z M10 20 V15 H14 V20" /> },
+  { label: 'Persons with Disabilities', icon: <path d="M12 6 C13 6 13.8 6.8 13.8 7.8 C13.8 8.8 13 9.6 12 9.6 C11 9.6 10.2 8.8 10.2 7.8 C10.2 6.8 11 6 12 6 Z M9 11 H15 L14 18 L12.5 18 L12 14 L11.5 18 L10 18 Z" /> },
+  { label: 'Youth / Unemployed', icon: <path d="M12 4 L20 8 L12 12 L4 8 Z M4 8 V14 M8 10 V16 C8 16 9.5 18 12 18 C14.5 18 16 16 16 16 V10" /> },
 ]
 
 export default function LandingPage({ onStart }) {
