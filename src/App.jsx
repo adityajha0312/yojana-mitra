@@ -12,6 +12,54 @@ const QUICK_LINKS = [
   { label: 'PM Awas Yojana', url: 'https://pmayg.nic.in' },
 ]
 
+function renderInline(text, keyPrefix) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${keyPrefix}-${i}`}>{part.slice(2, -2)}</strong>
+    }
+    return <span key={`${keyPrefix}-${i}`}>{part}</span>
+  })
+}
+
+function MessageContent({ text }) {
+  const lines = text.split('\n')
+  const blocks = []
+  let currentList = []
+
+  function flushList(key) {
+    if (currentList.length > 0) {
+      blocks.push(
+        <ul key={`ul-${key}`} style={{ margin: '4px 0', paddingLeft: '20px' }}>
+          {currentList.map((line, i) => (
+            <li key={i} style={{ marginBottom: '3px' }}>
+              {renderInline(line.replace(/^[*\-]\s+/, ''), `li-${key}-${i}`)}
+            </li>
+          ))}
+        </ul>
+      )
+      currentList = []
+    }
+  }
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim()
+    if (/^[*\-]\s+/.test(trimmed) && !/^\*\*/.test(trimmed)) {
+      currentList.push(trimmed)
+    } else {
+      flushList(idx)
+      if (trimmed === '') {
+        blocks.push(<div key={idx} style={{ height: '6px' }} />)
+      } else {
+        blocks.push(<div key={idx}>{renderInline(line, `p-${idx}`)}</div>)
+      }
+    }
+  })
+  flushList('end')
+
+  return <>{blocks}</>
+}
+
 function buildSystemInstruction(schemes) {
   const schemeList = schemes
     .map(
@@ -35,7 +83,9 @@ ${schemeList}
 RULES:
 - Ask the user simple, friendly questions about themselves (occupation, age, gender, income situation, land ownership, etc.) if you don't have enough information yet to match them to schemes.
 - Once you have enough information, recommend the schemes they likely qualify for, explain briefly WHY they qualify, list the documents needed, and explain how to apply.
+- Only greet with "Namaste" in your very first reply of the conversation. In every reply after that, get straight to the point — no repeated welcomes or greetings.
 - Be warm and conversational, not robotic. Keep responses concise and easy to read on a phone screen.
+- Use **bold** only around scheme names and key numbers (amounts, deadlines) — not whole sentences.
 - If the user writes in Hindi or Hinglish, respond in the same style/language they used.
 - Never invent a scheme that isn't in the list above.
 - If nothing matches, say so honestly and suggest they check the National Scholarship Portal or nearest Common Service Centre (CSC) for more options.`
@@ -157,7 +207,7 @@ export default function App() {
                 ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
               }}
             >
-              {msg.text}
+              {msg.role === 'assistant' ? <MessageContent text={msg.text} /> : msg.text}
             </div>
           ))
         )}
