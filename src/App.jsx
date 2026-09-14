@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
+import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge } from './lib/offline'
 import Logo from './Logo'
 import { MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon } from './Icons'
 import LandingPage from './LandingPage'
@@ -113,13 +114,30 @@ export default function App() {
   const [voiceLang, setVoiceLang] = useState('en-IN')
   const [speakEnabled, setSpeakEnabled] = useState(false)
   const listenControllerRef = useRef(null)
+  const [isOnline, setIsOnline] = useState(isCurrentlyOnline())
+  const [usingCachedSchemes, setUsingCachedSchemes] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
-    fetchAllSchemes().then((data) => {
-      setSchemes(data)
+    fetchAllSchemes().then(({ schemes, fromCache }) => {
+      setSchemes(schemes)
+      setUsingCachedSchemes(fromCache)
       setLoadingSchemes(false)
     })
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = subscribeToConnectionStatus((online) => {
+      setIsOnline(online)
+      if (online) {
+        // Reconnected - fetch fresh scheme data in the background
+        fetchAllSchemes().then(({ schemes, fromCache }) => {
+          setSchemes(schemes)
+          setUsingCachedSchemes(fromCache)
+        })
+      }
+    })
+    return unsubscribe
   }, [])
 
   useEffect(() => {
@@ -129,6 +147,11 @@ export default function App() {
   async function handleSend(overrideText) {
     const textToSend = (overrideText ?? input).trim()
     if (!textToSend || loading) return
+
+    if (!isOnline) {
+      setError("You're offline right now, so I can't think through scheme matches - that needs an internet connection. You can still browse the saved scheme list below. I'll be ready to chat again as soon as you're back online.")
+      return
+    }
 
     const userMessage = { role: 'user', text: textToSend }
     const newMessages = [...messages, userMessage]
@@ -244,6 +267,13 @@ export default function App() {
         </div>
       </header>
 
+      {!isOnline && (
+        <div style={styles.offlineBanner}>
+          You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
+          {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
+        </div>
+      )}
+
       {showLinks && (
         <div style={styles.linksBar}>
           {QUICK_LINKS.map((link) => (
@@ -285,6 +315,18 @@ export default function App() {
           </div>
         )}
         {error && <div style={styles.errorNote}>⚠️ {error}</div>}
+        {!isOnline && schemes.length > 0 && (
+          <div style={styles.offlineSchemeList}>
+            <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
+            {schemes.map((s) => (
+              <div key={s.id} style={styles.offlineSchemeItem}>
+                <strong>{s.scheme_name}</strong>
+                <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
+                <div>{s.description}</div>
+              </div>
+            ))}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -293,7 +335,7 @@ export default function App() {
           <button
             className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
             onClick={handleMicClick}
-            disabled={loadingSchemes}
+            disabled={loadingSchemes || !isOnline}
             title={isListening ? 'Stop listening' : 'Speak your message'}
             type="button"
           >
@@ -305,15 +347,15 @@ export default function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
+          placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
           rows={2}
-          disabled={loadingSchemes}
+          disabled={loadingSchemes || !isOnline}
         />
         <button
           className="ym-send-btn"
           style={styles.sendButton}
           onClick={handleSend}
-          disabled={loading || loadingSchemes || !input.trim()}
+          disabled={loading || loadingSchemes || !input.trim() || !isOnline}
         >
           Send
         </button>
@@ -363,6 +405,39 @@ const styles = {
     padding: '10px 18px',
     background: 'var(--color-sage)',
     borderBottom: '1px solid rgba(20,83,45,0.1)',
+  },
+  offlineBanner: {
+    background: '#f5e6c8',
+    color: '#6b4d0f',
+    fontSize: '13px',
+    padding: '10px 18px',
+    lineHeight: 1.5,
+    borderBottom: '1px solid rgba(107,77,15,0.15)',
+  },
+  offlineSchemeList: {
+    marginTop: '8px',
+    border: '1px solid rgba(20,83,45,0.15)',
+    borderRadius: '12px',
+    padding: '12px 14px',
+    background: '#ffffff',
+  },
+  offlineListTitle: {
+    margin: '0 0 8px',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: 'var(--color-forest)',
+  },
+  offlineSchemeItem: {
+    padding: '8px 0',
+    borderTop: '1px solid rgba(20,83,45,0.08)',
+    fontSize: '13.5px',
+    lineHeight: 1.45,
+  },
+  offlineSchemeCategory: {
+    fontSize: '11.5px',
+    color: 'var(--color-charcoal-soft)',
+    textTransform: 'capitalize',
+    margin: '2px 0 4px',
   },
   chatArea: {
     flex: 1,
