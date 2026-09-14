@@ -3,6 +3,7 @@ import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
 import Logo from './Logo'
+import { MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon } from './Icons'
 import LandingPage from './LandingPage'
 
 const QUICK_LINKS = [
@@ -225,7 +226,8 @@ export default function App() {
               }}
               title="Read replies aloud"
             >
-              {speakEnabled ? '🔊 On' : '🔈 Off'}
+              {speakEnabled ? <SpeakerOnIcon size={15} /> : <SpeakerOffIcon size={15} />}
+              {speakEnabled ? ' On' : ' Off'}
             </button>
           )}
           <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
@@ -290,7 +292,7 @@ export default function App() {
             title={isListening ? 'Stop listening' : 'Speak your message'}
             type="button"
           >
-            {isListening ? '⏹' : '🎤'}
+            {isListening ? <StopIcon size={17} color="white" /> : <MicIcon size={18} />}
           </button>
         )}
         <textarea
