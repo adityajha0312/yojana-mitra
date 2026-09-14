@@ -5,6 +5,9 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 // (fewer free requests per minute, but stronger reasoning).
 const MODEL = 'gemini-2.5-flash-lite'
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+// Google's newer "Auth key" format (starts with AQ.) must be sent as the
+// x-goog-api-key header rather than a ?key= URL parameter, unlike the old
+// AIzaSy-format keys. This works for both formats.
 
 // Waits `ms` milliseconds before continuing.
 function wait(ms) {
@@ -28,9 +31,12 @@ export async function askGemini(systemInstruction, conversationHistory) {
 
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
         body: JSON.stringify(body),
       })
 
