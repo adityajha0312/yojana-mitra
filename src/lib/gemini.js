@@ -1,9 +1,7 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
 // Flash-Lite has the highest free-tier limits, so we use it by default.
-// If you hit quality issues, you can switch to 'gemini-2.5-flash' instead
-// (fewer free requests per minute, but stronger reasoning).
-const MODEL = 'gemini-2.5-flash-lite'
+const MODEL = 'gemini-3.5-flash-lite'
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
 // Google's newer "Auth key" format (starts with AQ.) must be sent as the
 // x-goog-api-key header rather than a ?key= URL parameter, unlike the old
