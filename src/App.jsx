@@ -249,11 +249,14 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100vh',
+    height: 'calc(100vh - 32px)',
     maxWidth: '640px',
-    margin: '0 auto',
+    margin: '16px auto',
     fontFamily: 'var(--font-body)',
     background: 'var(--color-cream)',
+    borderRadius: '18px',
+    overflow: 'hidden',
+    boxShadow: '0 12px 40px rgba(20, 83, 45, 0.14)',
   },
   header: {
     background: 'var(--color-forest)',
@@ -270,7 +273,7 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
   },
-  title: { margin: 0, fontSize: '19px', fontFamily: 'var(--font-display)', fontWeight: 600 },
+  title: { margin: 0, fontSize: '19px', fontFamily: 'var(--font-body)', fontWeight: 700 },
   subtitle: { margin: '2px 0 0', fontSize: '12px', opacity: 0.85 },
   headerActions: {
     display: 'flex',
