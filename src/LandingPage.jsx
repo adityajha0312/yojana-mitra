@@ -11,6 +11,8 @@ const categories = [
 export default function LandingPage({ onStart }) {
   return (
     <div style={styles.page}>
+      <div style={styles.blobOne} />
+      <div style={styles.blobTwo} />
       <header style={styles.header}>
         <Logo size={36} />
         <span style={styles.wordmark}>Yojana Mitra</span>
@@ -56,6 +58,28 @@ const styles = {
     background: 'var(--color-cream)',
     color: 'var(--color-charcoal)',
     fontFamily: 'var(--font-body)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  blobOne: {
+    position: 'absolute',
+    top: '-120px',
+    right: '-140px',
+    width: '420px',
+    height: '420px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(232,163,61,0.28) 0%, rgba(232,163,61,0) 70%)',
+    pointerEvents: 'none',
+  },
+  blobTwo: {
+    position: 'absolute',
+    bottom: '-160px',
+    left: '-100px',
+    width: '380px',
+    height: '380px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(20,83,45,0.14) 0%, rgba(20,83,45,0) 70%)',
+    pointerEvents: 'none',
   },
   header: {
     display: 'flex',
@@ -64,9 +88,9 @@ const styles = {
     padding: '22px 28px',
   },
   wordmark: {
-    fontFamily: 'var(--font-display)',
+    fontFamily: 'var(--font-body)',
     fontSize: '19px',
-    fontWeight: 600,
+    fontWeight: 700,
     color: 'var(--color-forest)',
   },
   hero: {
