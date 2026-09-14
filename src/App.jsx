@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
+import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
 import Logo from './Logo'
 import LandingPage from './LandingPage'
 
@@ -107,6 +108,10 @@ export default function App() {
   const [loadingSchemes, setLoadingSchemes] = useState(true)
   const [error, setError] = useState(null)
   const [showLinks, setShowLinks] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [voiceLang, setVoiceLang] = useState('en-IN')
+  const [speakEnabled, setSpeakEnabled] = useState(false)
+  const listenControllerRef = useRef(null)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -134,6 +139,9 @@ export default function App() {
       const systemInstruction = buildSystemInstruction(schemes)
       const replyText = await askGemini(systemInstruction, newMessages)
       setMessages([...newMessages, { role: 'assistant', text: replyText }])
+      if (speakEnabled) {
+        speakText(replyText, voiceLang)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -152,7 +160,37 @@ export default function App() {
     setMessages([Welcome()])
     setError(null)
     setShowLinks(false)
+    stopSpeaking()
   }
+
+  function handleMicClick() {
+    if (isListening) {
+      listenControllerRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+    stopSpeaking()
+    setIsListening(true)
+    listenControllerRef.current = startListening({
+      lang: voiceLang,
+      onResult: (transcript) => {
+        setInput(transcript)
+      },
+      onEnd: () => {
+        setIsListening(false)
+      },
+      onError: (err) => {
+        setIsListening(false)
+        if (err !== 'no-speech' && err !== 'aborted') {
+          setError(`Voice input error: ${err}`)
+        }
+      },
+    })
+  }
+
+  useEffect(() => {
+    return () => stopSpeaking()
+  }, [])
 
   if (!started) {
     return <LandingPage onStart={() => setStarted(true)} />
@@ -169,6 +207,27 @@ export default function App() {
           </div>
         </div>
         <div style={styles.headerActions}>
+          {isVoiceInputSupported && (
+            <button
+              className="ym-icon-btn"
+              onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
+              title="Voice input language"
+            >
+              {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
+            </button>
+          )}
+          {isVoiceOutputSupported && (
+            <button
+              className="ym-icon-btn"
+              onClick={() => {
+                if (speakEnabled) stopSpeaking()
+                setSpeakEnabled((s) => !s)
+              }}
+              title="Read replies aloud"
+            >
+              {speakEnabled ? '🔊 On' : '🔈 Off'}
+            </button>
+          )}
           <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
             Official Sites
           </button>
@@ -223,12 +282,23 @@ export default function App() {
       </div>
 
       <div style={styles.inputArea}>
+        {isVoiceInputSupported && (
+          <button
+            className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
+            onClick={handleMicClick}
+            disabled={loadingSchemes}
+            title={isListening ? 'Stop listening' : 'Speak your message'}
+            type="button"
+          >
+            {isListening ? '⏹' : '🎤'}
+          </button>
+        )}
         <textarea
           style={styles.textInput}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type your message... (e.g. 'I am a farmer with 2 acres of land')"
+          placeholder={isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
           rows={2}
           disabled={loadingSchemes}
         />
