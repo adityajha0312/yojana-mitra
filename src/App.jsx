@@ -6,10 +6,10 @@ import LandingPage from './LandingPage'
 
 const QUICK_LINKS = [
   { label: 'PM-KISAN', url: 'https://pmkisan.gov.in' },
-  { label: 'Ayushman Bharat', url: 'https://pmjay.gov.in' },
+  { label: 'Ayushman Bharat', url: 'https://www.pmjay.gov.in' },
   { label: 'MP Scholarship Portal', url: 'https://scholarshipportal.mp.nic.in' },
   { label: 'MP Social Security', url: 'https://socialsecurity.mp.gov.in' },
-  { label: 'PM Awas Yojana', url: 'https://pmayg.nic.in' },
+  { label: 'PM Awas Yojana', url: 'https://pmayg.dord.gov.in' },
 ]
 
 function renderInline(text, keyPrefix) {
