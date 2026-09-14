@@ -126,10 +126,11 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  async function handleSend() {
-    if (!input.trim() || loading) return
+  async function handleSend(overrideText) {
+    const textToSend = (overrideText ?? input).trim()
+    if (!textToSend || loading) return
 
-    const userMessage = { role: 'user', text: input.trim() }
+    const userMessage = { role: 'user', text: textToSend }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     setInput('')
@@ -174,8 +175,12 @@ export default function App() {
     setIsListening(true)
     listenControllerRef.current = startListening({
       lang: voiceLang,
-      onResult: (transcript) => {
+      onResult: (transcript, isFinal) => {
         setInput(transcript)
+        if (isFinal && transcript.trim()) {
+          setIsListening(false)
+          handleSend(transcript)
+        }
       },
       onEnd: () => {
         setIsListening(false)
