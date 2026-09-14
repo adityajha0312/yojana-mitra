@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
+import Logo from './Logo'
+import LandingPage from './LandingPage'
 
-// Builds the instructions we give Gemini every time, including the full
-// list of government schemes it should match users against.
+const QUICK_LINKS = [
+  { label: 'PM-KISAN', url: 'https://pmkisan.gov.in' },
+  { label: 'Ayushman Bharat', url: 'https://pmjay.gov.in' },
+  { label: 'MP Scholarship Portal', url: 'https://scholarshipportal.mp.nic.in' },
+  { label: 'MP Social Security', url: 'https://socialsecurity.mp.gov.in' },
+  { label: 'PM Awas Yojana', url: 'https://pmayg.nic.in' },
+]
+
 function buildSystemInstruction(schemes) {
   const schemeList = schemes
     .map(
@@ -33,31 +41,34 @@ RULES:
 - If nothing matches, say so honestly and suggest they check the National Scholarship Portal or nearest Common Service Centre (CSC) for more options.`
 }
 
+function Welcome() {
+  return {
+    role: 'assistant',
+    text: "Namaste! I'm Yojana Mitra. Tell me a bit about yourself — your occupation, age, or situation — and I'll help you find government schemes you may be eligible for.",
+  }
+}
+
 export default function App() {
+  const [started, setStarted] = useState(false)
   const [schemes, setSchemes] = useState([])
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState([Welcome()])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingSchemes, setLoadingSchemes] = useState(true)
   const [error, setError] = useState(null)
+  const [showLinks, setShowLinks] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
     fetchAllSchemes().then((data) => {
       setSchemes(data)
       setLoadingSchemes(false)
-      setMessages([
-        {
-          role: 'assistant',
-          text: "Namaste! I'm Yojana Mitra 🙏 Tell me a bit about yourself — your occupation, age, or situation — and I'll help you find government schemes you may be eligible for.",
-        },
-      ])
     })
   }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, loading])
 
   async function handleSend() {
     if (!input.trim() || loading) return
@@ -87,12 +98,51 @@ export default function App() {
     }
   }
 
+  function handleClearChat() {
+    setMessages([Welcome()])
+    setError(null)
+    setShowLinks(false)
+  }
+
+  if (!started) {
+    return <LandingPage onStart={() => setStarted(true)} />
+  }
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>🙏 Yojana Mitra</h1>
-        <p style={styles.subtitle}>Your Government Scheme Assistant</p>
+        <div style={styles.headerLeft}>
+          <Logo size={32} />
+          <div>
+            <h1 style={styles.title}>Yojana Mitra</h1>
+            <p style={styles.subtitle}>Your Government Scheme Assistant</p>
+          </div>
+        </div>
+        <div style={styles.headerActions}>
+          <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
+            Official Sites
+          </button>
+          <button className="ym-icon-btn" onClick={handleClearChat}>
+            Clear Chat
+          </button>
+        </div>
       </header>
+
+      {showLinks && (
+        <div style={styles.linksBar}>
+          {QUICK_LINKS.map((link) => (
+            <a
+              key={link.url}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ym-link-pill"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <div style={styles.chatArea}>
         {loadingSchemes ? (
@@ -101,6 +151,7 @@ export default function App() {
           messages.map((msg, i) => (
             <div
               key={i}
+              className="ym-bubble"
               style={{
                 ...styles.bubble,
                 ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
@@ -110,7 +161,13 @@ export default function App() {
             </div>
           ))
         )}
-        {loading && <div style={styles.systemNote}>Yojana Mitra is thinking...</div>}
+        {loading && (
+          <div style={{ ...styles.bubble, ...styles.assistantBubble }} className="ym-bubble">
+            <span className="ym-typing">
+              <span></span><span></span><span></span>
+            </span>
+          </div>
+        )}
         {error && <div style={styles.errorNote}>⚠️ {error}</div>}
         <div ref={bottomRef} />
       </div>
@@ -126,6 +183,7 @@ export default function App() {
           disabled={loadingSchemes}
         />
         <button
+          className="ym-send-btn"
           style={styles.sendButton}
           onClick={handleSend}
           disabled={loading || loadingSchemes || !input.trim()}
@@ -142,51 +200,73 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    maxWidth: '600px',
+    maxWidth: '640px',
     margin: '0 auto',
-    fontFamily: "'Segoe UI', system-ui, sans-serif",
-    background: '#f7f7fb',
+    fontFamily: 'var(--font-body)',
+    background: 'var(--color-cream)',
   },
   header: {
-    background: '#0f5132',
-    color: 'white',
-    padding: '16px 20px',
-    textAlign: 'center',
+    background: 'var(--color-forest)',
+    color: 'var(--color-cream)',
+    padding: '14px 18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    flexWrap: 'wrap',
   },
-  title: { margin: 0, fontSize: '22px' },
-  subtitle: { margin: '4px 0 0', fontSize: '13px', opacity: 0.85 },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  title: { margin: 0, fontSize: '19px', fontFamily: 'var(--font-display)', fontWeight: 600 },
+  subtitle: { margin: '2px 0 0', fontSize: '12px', opacity: 0.85 },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
+  },
+  linksBar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    padding: '10px 18px',
+    background: 'var(--color-sage)',
+    borderBottom: '1px solid rgba(20,83,45,0.1)',
+  },
   chatArea: {
     flex: 1,
     overflowY: 'auto',
-    padding: '16px',
+    padding: '18px',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
   },
   bubble: {
-    padding: '12px 14px',
-    borderRadius: '14px',
+    padding: '13px 15px',
+    borderRadius: '16px',
     maxWidth: '85%',
     whiteSpace: 'pre-wrap',
-    lineHeight: 1.45,
+    lineHeight: 1.5,
     fontSize: '15px',
   },
   userBubble: {
-    background: '#0f5132',
-    color: 'white',
+    background: 'var(--color-forest)',
+    color: 'var(--color-cream)',
     alignSelf: 'flex-end',
     borderBottomRightRadius: '4px',
   },
   assistantBubble: {
-    background: 'white',
-    color: '#222',
+    background: '#ffffff',
+    color: 'var(--color-charcoal)',
     alignSelf: 'flex-start',
     borderBottomLeftRadius: '4px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+    boxShadow: '0 1px 4px rgba(20,83,45,0.08)',
+    border: '1px solid rgba(20,83,45,0.06)',
   },
   systemNote: {
     fontSize: '13px',
-    color: '#888',
+    color: 'var(--color-charcoal-soft)',
     textAlign: 'center',
     padding: '6px',
   },
@@ -200,25 +280,27 @@ const styles = {
     display: 'flex',
     gap: '8px',
     padding: '12px',
-    borderTop: '1px solid #ddd',
-    background: 'white',
+    borderTop: '1px solid rgba(20,83,45,0.12)',
+    background: '#ffffff',
   },
   textInput: {
     flex: 1,
     resize: 'none',
     padding: '10px 12px',
-    borderRadius: '10px',
-    border: '1px solid #ccc',
+    borderRadius: '12px',
+    border: '1px solid rgba(20,83,45,0.2)',
     fontSize: '15px',
     fontFamily: 'inherit',
+    background: 'var(--color-cream)',
   },
   sendButton: {
-    padding: '0 18px',
-    borderRadius: '10px',
+    padding: '0 20px',
+    borderRadius: '12px',
     border: 'none',
-    background: '#0f5132',
-    color: 'white',
+    background: 'var(--color-forest)',
+    color: 'var(--color-cream)',
     fontSize: '15px',
+    fontWeight: 600,
     cursor: 'pointer',
   },
 }
