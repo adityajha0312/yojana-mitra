@@ -90,8 +90,8 @@ RULES:
 - Be warm and conversational, not robotic. Keep responses concise and easy to read on a phone screen.
 - Use **bold** only around scheme names and key numbers (amounts, deadlines) — not whole sentences.
 - If the user writes in Hindi or Hinglish, respond in the same style/language they used.
-- Never invent a scheme that isn't in the list above.
-- If nothing matches, say so honestly and suggest they check the National Scholarship Portal or nearest Common Service Centre (CSC) for more options.`
+- Never invent a scheme that isn't in the list above, even if you know of a real government scheme that could apply (e.g. PM CARES for Children, PMJJBY, etc.) - if it's not in the list, it's not something you have verified details for, so do not mention it or describe its benefits. Only ever recommend schemes from the list provided to you above.
+- If a person's situation doesn't clearly match any scheme in the list, say so honestly: tell them you don't have a verified scheme for their exact situation in your current database, and suggest they check the National Scholarship Portal, nearest Common Service Centre (CSC), or relevant district office for more options. Do not guess or name schemes outside your list even to be helpful.`
 }
 
 function Welcome() {
@@ -142,7 +142,7 @@ export default function App() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, isOnline])
 
   async function handleSend(overrideText) {
     const textToSend = (overrideText ?? input).trim()
