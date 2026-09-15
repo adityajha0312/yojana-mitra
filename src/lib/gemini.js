@@ -1,7 +1,11 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-// Flash-Lite has the highest free-tier limits, so we use it by default.
-const MODEL = 'gemini-3.5-flash-lite'
+// Using the full Flash model (not Lite) here deliberately: this app's core
+// trust requirement is that it NEVER recommends a scheme outside our
+// verified database, and Flash follows strict constraints more reliably
+// than Flash-Lite. Free-tier rate limits are lower, but accuracy matters
+// more than speed for a government-scheme matching tool.
+const MODEL = 'gemini-3.5-flash'
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
 // Google's newer "Auth key" format (starts with AQ.) must be sent as the
 // x-goog-api-key header rather than a ?key= URL parameter, unlike the old
