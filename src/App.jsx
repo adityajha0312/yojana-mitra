@@ -63,27 +63,56 @@ function MessageContent({ text }) {
   return <>{blocks}</>
 }
 
-function buildSystemInstruction(schemes) {
-  const schemeList = schemes
-    .map(
-      (s) => `
+// Lightweight keyword matching to guess which scheme categories are
+// relevant based on the conversation so far. This isn't meant to be
+// exact - it just narrows Gemini's attention to a smaller, clearly-labeled
+// "likely relevant" subset instead of leaving it to search all schemes
+// from scratch, which in testing made it too quick to give up entirely.
+const CATEGORY_KEYWORDS = {
+  farmer: ['farmer', 'farming', 'kisan', 'agricultur', 'land', 'acre', 'hectare', 'crop', 'khet'],
+  student: ['student', 'scholarship', 'school', 'college', 'class ', 'study', 'studying', 'graduate', 'education'],
+  woman: ['woman', 'women', 'girl', 'daughter', 'wife', 'mother', 'pregnan', 'widow', 'ladli'],
+  senior: ['senior', 'old age', 'elderly', '60 year', '65 year', '70 year', 'retire'],
+  disability: ['disab', 'divyang', 'handicap'],
+  youth: ['unemployed', 'youth', 'jobless', 'no job', 'looking for work', 'fresher', 'unemploy'],
+  general: ['bpl', 'poor', 'ration card', 'below poverty', 'house', 'housing', 'lpg', 'gas connection', 'hospital', 'health insurance'],
+}
+
+function guessRelevantCategories(conversationText) {
+  const lower = conversationText.toLowerCase()
+  const matched = new Set(['general']) // general schemes are broadly relevant, always include
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some((kw) => lower.includes(kw))) {
+      matched.add(category)
+    }
+  }
+  return matched
+}
+
+function buildSystemInstruction(schemes, conversationText) {
+  const relevantCategories = guessRelevantCategories(conversationText)
+  const likelyRelevant = schemes.filter((s) => relevantCategories.has(s.category))
+  const others = schemes.filter((s) => !relevantCategories.has(s.category))
+
+  const formatScheme = (s) => `
 - ${s.scheme_name} (${s.scheme_name_hindi || ''}) [${s.category}, ${s.level}]
   Eligibility: ${JSON.stringify(s.eligibility_criteria)}
   Benefits: ${s.benefits}
   Documents: ${JSON.stringify(s.documents_required)}
   How to apply: ${s.how_to_apply}`
-    )
-    .join('\n')
 
   return `You are Yojana Mitra, an assistant that matches Indian citizens to government schemes from the list below. This is the ONLY list of schemes you know about - do not mention any other scheme, even real ones from your training (like Mission Vatsalya or PM CARES for Children).
 
-SCHEMES:
-${schemeList}
+LIKELY RELEVANT SCHEMES based on the conversation so far - check these carefully first, they are probably what this person needs:
+${likelyRelevant.map(formatScheme).join('\n')}
+
+OTHER SCHEMES in the database (less likely to apply here, but check if the person's situation shifts):
+${others.map(formatScheme).join('\n')}
 
 HOW TO RESPOND:
-1. If you don't yet have enough details (occupation, age, land, income, gender, etc.) to check eligibility, ask 1-2 short friendly questions.
-2. Once you have enough details, go through the list above and check each scheme's eligibility against what the user told you. For every scheme where the details clearly fit, recommend it by name with why they qualify, the benefit amount, documents needed, and how to apply - taken directly from the info above. Be confident, not hesitant - a farmer with small landholding in Madhya Pradesh, for example, normally qualifies for multiple schemes on this list at once.
-3. Only say "I don't have a verified scheme for your situation" if you've checked the list and truly nothing fits - not by default, and not just because you're unsure. When in doubt about a borderline detail, lean toward recommending the scheme and noting the one thing to double check, rather than refusing.
+1. If you don't yet have enough details to confirm eligibility for the likely relevant schemes above (e.g. exact land size, income, age), ask 1-2 short friendly questions to get just what's missing.
+2. Recommend confidently, not hesitantly. If someone is clearly a farmer, for example, schemes like crop insurance or soil health cards that only require owning farmland (no specific land-size limit) should be recommended immediately - don't wait for every possible detail before mentioning schemes that already clearly apply. Only hold back a specific scheme if it has a specific numeric limit (like "under 2 hectares") that you haven't confirmed yet - and even then, ask for that one missing number rather than refusing everything.
+3. Only say "I don't have a verified scheme for your situation" if you've genuinely checked and nothing in the full database fits - never as a default or safe-feeling fallback when a real match exists above.
 4. Say "Namaste" only in your first reply. Keep replies concise, warm, and easy to read on a phone. Bold only scheme names and key numbers. Match the user's language (English/Hindi/Hinglish).`
 }
 
@@ -154,7 +183,8 @@ export default function App() {
     setError(null)
 
     try {
-      const systemInstruction = buildSystemInstruction(schemes)
+      const conversationText = newMessages.map((m) => m.text).join(' ')
+      const systemInstruction = buildSystemInstruction(schemes, conversationText)
       const replyText = await askGemini(systemInstruction, newMessages)
       setMessages([...newMessages, { role: 'assistant', text: replyText }])
       if (speakEnabled) {
