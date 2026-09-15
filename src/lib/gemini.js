@@ -16,7 +16,7 @@ function wait(ms) {
 
 // Calls the Gemini API with automatic retry if we hit a rate limit (HTTP 429).
 // Retries up to 3 times with increasing wait times (1s, 2s, 4s) before giving up.
-export async function askGemini(systemInstruction, conversationHistory) {
+export async function askGemini(systemInstruction, conversationHistory, jsonMode = false) {
   const body = {
     systemInstruction: {
       parts: [{ text: systemInstruction }],
@@ -25,6 +25,9 @@ export async function askGemini(systemInstruction, conversationHistory) {
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.text }],
     })),
+  }
+  if (jsonMode) {
+    body.generationConfig = { responseMimeType: 'application/json' }
   }
 
   let lastError = null
