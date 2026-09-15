@@ -120,7 +120,12 @@ RULES:
 - A scheme requiring a document or card the person doesn't have yet (like a BPL card) is still a MATCH, not a blocker - getting that document is normally part of the application process itself, not a precondition for recommending the scheme. Only withhold a match for a genuine eligibility criterion (age range, gender, income threshold, land size, category) that the stated facts actually fail or that you still don't know.
 - Only return an empty matched_scheme_ids array (with needs_more_info false) if you've genuinely checked and nothing fits - never as a default.
 - Match the person's language for the clarifying_question and reasoning text (English/Hindi/Hinglish).
-- Do not include any text outside the JSON object.`
+- Do not include any text outside the JSON object.
+
+WORKED EXAMPLE (follow this pattern exactly for similar cases):
+If the person says "I am a 65 years old woman, no income and my husband passed away", and the likely relevant schemes include a widow pension scheme (e.g. id "mp_widow_pension", eligibility mentioning female/widowed/age 40-79/BPL) and an old age pension scheme (e.g. id "mp_old_age_pension", eligibility mentioning age 60+/BPL), the CORRECT response is:
+{"needs_more_info": false, "clarifying_question": null, "matched_scheme_ids": ["mp_widow_pension", "mp_old_age_pension"], "reasoning": {"mp_widow_pension": "You are a widow aged 65, which fits the 40-79 age range for this scheme.", "mp_old_age_pension": "At 65 with no income, you meet the age and income criteria for this pension."}}
+Do NOT respond with an empty matched_scheme_ids array for a case like this - both schemes clearly apply from the stated age, gender, widowhood, and lack of income alone, with no further questions needed.`
 }
 
 // Renders the final chat message from OUR verified scheme data, using only
