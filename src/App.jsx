@@ -64,10 +64,8 @@ function MessageContent({ text }) {
 }
 
 // Lightweight keyword matching to guess which scheme categories are
-// relevant based on the conversation so far. This isn't meant to be
-// exact - it just narrows Gemini's attention to a smaller, clearly-labeled
-// "likely relevant" subset instead of leaving it to search all schemes
-// from scratch, which in testing made it too quick to give up entirely.
+// relevant based on the conversation so far - just narrows Gemini's
+// attention to a smaller, clearly-labeled "likely relevant" subset.
 const CATEGORY_KEYWORDS = {
   farmer: ['farmer', 'farming', 'kisan', 'agricultur', 'land', 'acre', 'hectare', 'crop', 'khet'],
   student: ['student', 'scholarship', 'school', 'college', 'class ', 'study', 'studying', 'graduate', 'education'],
@@ -80,7 +78,7 @@ const CATEGORY_KEYWORDS = {
 
 function guessRelevantCategories(conversationText) {
   const lower = conversationText.toLowerCase()
-  const matched = new Set(['general']) // general schemes are broadly relevant, always include
+  const matched = new Set(['general'])
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some((kw) => lower.includes(kw))) {
       matched.add(category)
@@ -89,131 +87,32 @@ function guessRelevantCategories(conversationText) {
   return matched
 }
 
-// Deterministic rules for schemes with clear, purely numeric/demographic
-// eligibility criteria. These are computed directly in code - not left to
-// the AI's judgment - because age-range and gender/widow matching turned
-// out to be inconsistent when left entirely to the model, even with a
-// carefully worded prompt. This guarantees these specific matches are
-// always correct rather than merely probable.
-const SCHEME_AGE_RULES = {
-  mp_widow_pension: { min: 40, max: 79, requiresFemale: true, requiresWidow: true },
-  mp_old_age_pension: { min: 60 },
-  pm_kisan_maandhan: { min: 18, max: 40 },
-  atal_pension_yojana: { min: 18, max: 40 },
-  mp_seekho_kamao: { min: 18, max: 29 },
-  mp_disability_pension: { min: 18 },
-}
-
-function extractAge(text) {
-  const match = text.match(/(\d{1,3})\s*(?:years?|yrs?|साल)\b/i)
-  return match ? parseInt(match[1], 10) : null
-}
-
-function isLikelyWidow(text) {
-  const lower = text.toLowerCase()
-  return /widow|husband (passed away|died|is no more|expired)|पति.*गुजर|विधवा/.test(lower)
-}
-
-function isLikelyFemale(text) {
-  const lower = text.toLowerCase()
-  return /\bwoman\b|\bwomen\b|\bfemale\b|\bshe\b|\bher\b|\bwife\b|महिला|औरत/.test(lower)
-}
-
-function computeDeterministicMatches(conversationText, availableSchemeIds) {
-  const age = extractAge(conversationText)
-  const widow = isLikelyWidow(conversationText)
-  const female = isLikelyFemale(conversationText)
-  const matches = []
-
-  if (age === null) return matches
-
-  for (const [schemeId, rule] of Object.entries(SCHEME_AGE_RULES)) {
-    if (!availableSchemeIds.has(schemeId)) continue
-    if (rule.min !== undefined && age < rule.min) continue
-    if (rule.max !== undefined && age > rule.max) continue
-    if (rule.requiresFemale && !female) continue
-    if (rule.requiresWidow && !widow) continue
-    matches.push(schemeId)
-  }
-  return matches
-}
-
 function buildSystemInstruction(schemes, conversationText) {
   const relevantCategories = guessRelevantCategories(conversationText)
   const likelyRelevant = schemes.filter((s) => relevantCategories.has(s.category))
   const others = schemes.filter((s) => !relevantCategories.has(s.category))
 
-  const formatForMatching = (s) => `{"id": "${s.id}", "name": "${s.scheme_name}", "category": "${s.category}", "eligibility": ${JSON.stringify(s.eligibility_criteria)}}`
+  const formatScheme = (s) => `
+- ${s.scheme_name} (${s.scheme_name_hindi || ''}) [${s.category}, ${s.level}]
+  Eligibility: ${JSON.stringify(s.eligibility_criteria)}
+  Benefits: ${s.benefits}
+  Documents: ${JSON.stringify(s.documents_required)}
+  How to apply: ${s.how_to_apply}`
 
-  return `You are a matching engine for Yojana Mitra, a government scheme assistant. Your ONLY job is to decide which scheme IDs from the list below match the person's situation. You do not write scheme names, amounts, or facts yourself - you only select IDs and give a one-line reason for each.
+  return `You are Yojana Mitra, a friendly assistant that helps Indian citizens (especially in Madhya Pradesh) find government schemes they may be eligible for.
 
-LIKELY RELEVANT (check these first, based on the conversation so far):
-${likelyRelevant.map(formatForMatching).join('\n')}
+LIKELY RELEVANT SCHEMES based on the conversation so far - check these carefully first, they are probably what this person needs:
+${likelyRelevant.map(formatScheme).join('\n')}
 
-OTHER SCHEMES (less likely, but check if situation shifts):
-${others.map(formatForMatching).join('\n')}
+OTHER SCHEMES in the database (less likely to apply here, but check if the person's situation shifts):
+${others.map(formatScheme).join('\n')}
 
-Respond with ONLY a raw JSON object (no markdown, no code fences), exactly this shape:
-{
-  "needs_more_info": boolean,
-  "clarifying_question": "short friendly question, or null if needs_more_info is false",
-  "matched_scheme_ids": ["id_from_list_above", ...],
-  "reasoning": { "id_from_list_above": "one short sentence on why they qualify, in the person's language" }
-}
-
-RULES:
-- "matched_scheme_ids" must ONLY contain ids exactly as given in the lists above (e.g. "pm_kisan", "mp_widow_pension"). Never invent an id or name that isn't in the lists.
-- If you don't have enough details to check eligibility confidently, set needs_more_info to true and ask 1-2 short questions - do not guess.
-- Be confident and thorough once you have enough info: include EVERY scheme whose eligibility criteria the person's details satisfy, not just the first one you find. A person often qualifies for multiple schemes at once (e.g. a widow who is also a senior citizen qualifies for both widow pension AND old age pension - check both).
-- Treat plain statements about their situation as sufficient evidence, don't demand paperwork-level proof before matching: "no income" or "husband passed away and no income" satisfies a BPL/low-income/economically-weaker eligibility criterion - you do not need them to say the words "BPL card" first. Similarly, "husband passed away" clearly means widowed. Match on the substance of what they said, not on whether they used the exact bureaucratic term.
-- A scheme requiring a document or card the person doesn't have yet (like a BPL card) is still a MATCH, not a blocker - getting that document is normally part of the application process itself, not a precondition for recommending the scheme. Only withhold a match for a genuine eligibility criterion (age range, gender, income threshold, land size, category) that the stated facts actually fail or that you still don't know.
-- Only return an empty matched_scheme_ids array (with needs_more_info false) if you've genuinely checked and nothing fits - never as a default.
-- Match the person's language for the clarifying_question and reasoning text (English/Hindi/Hinglish).
-- Do not include any text outside the JSON object.
-
-WORKED EXAMPLE (follow this pattern exactly for similar cases):
-If the person says "I am a 65 years old woman, no income and my husband passed away", and the likely relevant schemes include a widow pension scheme (e.g. id "mp_widow_pension", eligibility mentioning female/widowed/age 40-79/BPL) and an old age pension scheme (e.g. id "mp_old_age_pension", eligibility mentioning age 60+/BPL), the CORRECT response is:
-{"needs_more_info": false, "clarifying_question": null, "matched_scheme_ids": ["mp_widow_pension", "mp_old_age_pension"], "reasoning": {"mp_widow_pension": "You are a widow aged 65, which fits the 40-79 age range for this scheme.", "mp_old_age_pension": "At 65 with no income, you meet the age and income criteria for this pension."}}
-Do NOT respond with an empty matched_scheme_ids array for a case like this - both schemes clearly apply from the stated age, gender, widowhood, and lack of income alone, with no further questions needed.`
-}
-
-// Renders the final chat message from OUR verified scheme data, using only
-// Gemini's chosen scheme IDs and short reasoning - never Gemini's own
-// description of scheme facts. This makes it structurally impossible for
-// the AI to state a wrong amount, wrong document, or invented scheme name,
-// since all of that text comes directly from our database, not from the model.
-function renderMatchResult(parsed, allSchemes, deterministicIds = []) {
-  const validIds = new Set(allSchemes.map((s) => s.id))
-  const aiMatchedIds = (parsed.matched_scheme_ids || []).filter((id) => validIds.has(id))
-  const allMatchedIds = Array.from(new Set([...aiMatchedIds, ...deterministicIds]))
-
-  // If we have deterministic (code-verified) matches, always show them -
-  // even if the AI wanted to ask another question, these specific matches
-  // are already certain and don't need to wait.
-  if (allMatchedIds.length === 0 && parsed.needs_more_info) {
-    return parsed.clarifying_question || 'Could you share a few more details about your situation?'
-  }
-
-  if (allMatchedIds.length === 0) {
-    return "I don't have a verified scheme for your exact situation in my current database. I'd suggest checking the National Scholarship Portal, your nearest Common Service Centre (CSC), or the relevant district office for more options."
-  }
-
-  const matchedSchemes = allMatchedIds.map((id) => allSchemes.find((s) => s.id === id)).filter(Boolean)
-
-  const parts = matchedSchemes.map((s, i) => {
-    const reason = parsed.reasoning?.[s.id] || `Your details match the eligibility criteria for this scheme.`
-    const docs = Array.isArray(s.documents_required) ? s.documents_required.join(', ') : s.documents_required
-    return `${i + 1}. **${s.scheme_name}** — ${reason}
-* Benefit: ${s.benefits}
-* Documents needed: ${docs}
-* How to apply: ${s.how_to_apply}`
-  })
-
-  const intro = matchedSchemes.length > 1
-    ? 'Based on your details, here are the schemes you may qualify for:'
-    : 'Based on your details, here is a scheme you may qualify for:'
-
-  return `${intro}\n\n${parts.join('\n\n')}`
+HOW TO RESPOND:
+1. If you don't yet have enough details to check eligibility, ask 1-2 short friendly clarifying questions (occupation, age, land, income, gender, etc.).
+2. Once you have enough details, recommend the schemes above that clearly match - explain briefly why they qualify, the benefit amount, documents needed, and how to apply, all taken from the details given above. Be confident, not hesitant - a farmer with small landholding, for example, normally qualifies for multiple schemes on this list at once.
+3. You may also mention a real Indian government scheme you know about that is NOT in the list above, if it genuinely seems relevant - but you MUST clearly label it as unverified, for example: "Note: [Scheme Name] is not in my verified database, so please confirm the current details with an official source before relying on it." Never state facts about an unlisted scheme (amounts, eligibility, documents) with the same confidence as a listed one - always flag it as unverified information, separate from your verified recommendations.
+4. Only say "I don't have a verified scheme for your situation" if you've genuinely checked the list and nothing fits - not by default. If you know of an unverified scheme per rule 3, mention it there instead; otherwise suggest the National Scholarship Portal, nearest Common Service Centre (CSC), or relevant district office.
+5. Say "Namaste" only in your first reply. Keep replies concise, warm, and easy to read on a phone. Bold only scheme names and key numbers. Match the user's language (English/Hindi/Hinglish).`
 }
 
 function Welcome() {
@@ -285,21 +184,7 @@ export default function App() {
     try {
       const conversationText = newMessages.map((m) => m.text).join(' ')
       const systemInstruction = buildSystemInstruction(schemes, conversationText)
-      const rawResponse = await askGemini(systemInstruction, newMessages, true)
-
-      let parsed
-      try {
-        parsed = JSON.parse(rawResponse)
-      } catch (parseErr) {
-        // If Gemini didn't return clean JSON for some reason, fail safe by
-        // asking the person to rephrase rather than showing broken output.
-        parsed = {
-          needs_more_info: true,
-          clarifying_question: "Sorry, could you tell me a bit more about your situation (occupation, age, or income)?",
-        }
-      }
-
-      const replyText = renderMatchResult(parsed, schemes, computeDeterministicMatches(conversationText, new Set(schemes.map((s) => s.id))))
+      const replyText = await askGemini(systemInstruction, newMessages)
       setMessages([...newMessages, { role: 'assistant', text: replyText }])
       if (speakEnabled) {
         speakText(replyText, voiceLang)
