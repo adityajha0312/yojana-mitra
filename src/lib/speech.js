@@ -79,55 +79,54 @@ function waitForVoices() {
   return voicesReadyPromise
 }
 
-let keepAliveTimer = null
+// Splits text into sentence-sized chunks. Chrome has a well-known bug where
+// a single long utterance (roughly 15+ seconds of speech) can silently stop
+// partway through. Speaking shorter sentences as a queue of separate
+// utterances - rather than one long one - avoids that bug entirely, and is
+// more reliable than trying to keep one long utterance alive with pause/resume
+// tricks.
+function splitIntoSentences(text) {
+  const cleaned = cleanTextForSpeech(text)
+  const sentences = cleaned.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g)
+  return (sentences || [cleaned]).map((s) => s.trim()).filter(Boolean)
+}
 
-function stopKeepAlive() {
-  if (keepAliveTimer) {
-    clearInterval(keepAliveTimer)
-    keepAliveTimer = null
+let speechQueue = []
+let isSpeakingQueue = false
+
+function speakNextInQueue(lang) {
+  if (speechQueue.length === 0) {
+    isSpeakingQueue = false
+    return
   }
+  isSpeakingQueue = true
+  const sentence = speechQueue.shift()
+  const utterance = new SpeechSynthesisUtterance(sentence)
+  utterance.lang = lang
+  utterance.rate = 0.95
+  utterance.onend = () => speakNextInQueue(lang)
+  utterance.onerror = () => speakNextInQueue(lang)
+  window.speechSynthesis.speak(utterance)
 }
 
-// Chrome has a long-standing bug where speechSynthesis stops speaking
-// partway through longer text (roughly 15+ seconds in). Periodically
-// pausing/resuming keeps it alive for the full utterance.
-function startKeepAlive() {
-  stopKeepAlive()
-  keepAliveTimer = setInterval(() => {
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.pause()
-      window.speechSynthesis.resume()
-    } else {
-      stopKeepAlive()
-    }
-  }, 9000)
-}
-
-// Chrome also sometimes silently drops a speak() call if it's fired
-// immediately after cancel() - a short delay avoids the race condition.
 export function speakText(text, lang = 'en-IN') {
   if (!isVoiceOutputSupported) return
   window.speechSynthesis.cancel()
-  stopKeepAlive()
+  speechQueue = []
+  isSpeakingQueue = false
 
   waitForVoices().then(() => {
     setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech(text))
-      utterance.lang = lang
-      utterance.rate = 0.95
-
-      utterance.onstart = () => startKeepAlive()
-      utterance.onend = () => stopKeepAlive()
-      utterance.onerror = () => stopKeepAlive()
-
-      window.speechSynthesis.speak(utterance)
+      speechQueue = splitIntoSentences(text)
+      speakNextInQueue(lang)
     }, 120)
   })
 }
 
 export function stopSpeaking() {
   if (isVoiceOutputSupported) {
-    stopKeepAlive()
+    speechQueue = []
+    isSpeakingQueue = false
     window.speechSynthesis.cancel()
   }
 }
