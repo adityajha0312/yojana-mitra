@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
-import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge } from './lib/offline'
+import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache } from './lib/offline'
 import Logo from './Logo'
 import { MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon } from './Icons'
 import LandingPage from './LandingPage'
@@ -91,10 +91,11 @@ ${schemeList}
 HARD CONSTRAINT (this is the single most important rule, more important than being maximally helpful):
 You are FORBIDDEN from naming, describing, or recommending ANY scheme whose exact name is not in the "ALLOWED LIST" above - even if it is a real Indian government scheme you know about from training (e.g. Mission Vatsalya, PM CARES for Children, PMJJBY, PMSBY, Beti Bachao Beti Padhao, or any other scheme not listed above). This applies no matter how well it seems to fit the user's situation. If you catch yourself about to name a scheme, STOP and check: is this exact scheme name in the ALLOWED LIST above? If not, do not say it.
 
-If no scheme in the allowed list fits the user's situation well, say so honestly and directly: "I don't have a verified scheme for your exact situation in my current database." Then suggest they check the National Scholarship Portal, their nearest Common Service Centre (CSC), or the relevant district office. Do NOT soften this by naming an unlisted scheme "just in case" - an honest "I don't know" is always better than a guess for a government-trust product like this.
+If no scheme in the allowed list fits the user's situation well, say so honestly and directly: "I don't have a verified scheme for your exact situation in my current database." Then suggest they check the National Scholarship Portal, their nearest Common Service Centre (CSC), or the relevant district office. Do NOT soften this by naming an unlisted scheme "just in case" - an honest "I don't know" is always better than a guess for a government-trust product like this. Important: this constraint is only about never NAMING a scheme outside the allowed list - it does not mean you should be quick to give up. Always ask clarifying questions first when a message is brief or missing details; only reach this "no verified scheme" conclusion once you've actually gathered enough details to be sure.
 
 OTHER RULES:
-- Ask simple, friendly clarifying questions (occupation, age, gender, income, land ownership, etc.) if you don't have enough information to match confidently against the allowed list.
+- Your default first move for any real situation is to ask 1-2 simple, friendly clarifying questions (occupation, age, gender, income, land ownership, family size, etc.) before deciding whether anything matches. Do NOT jump straight to "I don't have a verified scheme" just because the user's first message was brief - a short message like "I am a farmer in Madhya Pradesh" is normal for a first message; respond by asking what you still need to know (e.g. how much land they own) so you can check it against the allowed list properly, exactly as you would for any other category.
+- Only say "I don't have a verified scheme for your exact situation" AFTER you've asked and received enough details to genuinely rule out every scheme in the allowed list - never as a first response to a short opening message.
 - Once you have enough information, recommend only allowed-list schemes they likely qualify for, explain briefly WHY, list documents needed, and explain how to apply - all pulled from the details given above, never invented.
 - Only greet with "Namaste" in your very first reply of the conversation. Every reply after that goes straight to the point.
 - Be warm and conversational, not robotic. Keep responses concise and easy to read on a phone screen.
@@ -111,7 +112,7 @@ function Welcome() {
 
 export default function App() {
   const [started, setStarted] = useState(false)
-  const [schemes, setSchemes] = useState([])
+  const [schemes, setSchemes] = useState(() => getSchemesFromCache() || [])
   const [messages, setMessages] = useState([Welcome()])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -362,7 +363,7 @@ export default function App() {
         <button
           className="ym-send-btn"
           style={styles.sendButton}
-          onClick={handleSend}
+          onClick={() => handleSend()}
           disabled={loading || loadingSchemes || !input.trim() || !isOnline}
         >
           Send
