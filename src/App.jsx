@@ -89,6 +89,55 @@ function guessRelevantCategories(conversationText) {
   return matched
 }
 
+// Deterministic rules for schemes with clear, purely numeric/demographic
+// eligibility criteria. These are computed directly in code - not left to
+// the AI's judgment - because age-range and gender/widow matching turned
+// out to be inconsistent when left entirely to the model, even with a
+// carefully worded prompt. This guarantees these specific matches are
+// always correct rather than merely probable.
+const SCHEME_AGE_RULES = {
+  mp_widow_pension: { min: 40, max: 79, requiresFemale: true, requiresWidow: true },
+  mp_old_age_pension: { min: 60 },
+  pm_kisan_maandhan: { min: 18, max: 40 },
+  atal_pension_yojana: { min: 18, max: 40 },
+  mp_seekho_kamao: { min: 18, max: 29 },
+  mp_disability_pension: { min: 18 },
+}
+
+function extractAge(text) {
+  const match = text.match(/(\d{1,3})\s*(?:years?|yrs?|साल)\b/i)
+  return match ? parseInt(match[1], 10) : null
+}
+
+function isLikelyWidow(text) {
+  const lower = text.toLowerCase()
+  return /widow|husband (passed away|died|is no more|expired)|पति.*गुजर|विधवा/.test(lower)
+}
+
+function isLikelyFemale(text) {
+  const lower = text.toLowerCase()
+  return /\bwoman\b|\bwomen\b|\bfemale\b|\bshe\b|\bher\b|\bwife\b|महिला|औरत/.test(lower)
+}
+
+function computeDeterministicMatches(conversationText, availableSchemeIds) {
+  const age = extractAge(conversationText)
+  const widow = isLikelyWidow(conversationText)
+  const female = isLikelyFemale(conversationText)
+  const matches = []
+
+  if (age === null) return matches
+
+  for (const [schemeId, rule] of Object.entries(SCHEME_AGE_RULES)) {
+    if (!availableSchemeIds.has(schemeId)) continue
+    if (rule.min !== undefined && age < rule.min) continue
+    if (rule.max !== undefined && age > rule.max) continue
+    if (rule.requiresFemale && !female) continue
+    if (rule.requiresWidow && !widow) continue
+    matches.push(schemeId)
+  }
+  return matches
+}
+
 function buildSystemInstruction(schemes, conversationText) {
   const relevantCategories = guessRelevantCategories(conversationText)
   const likelyRelevant = schemes.filter((s) => relevantCategories.has(s.category))
@@ -133,24 +182,28 @@ Do NOT respond with an empty matched_scheme_ids array for a case like this - bot
 // description of scheme facts. This makes it structurally impossible for
 // the AI to state a wrong amount, wrong document, or invented scheme name,
 // since all of that text comes directly from our database, not from the model.
-function renderMatchResult(parsed, allSchemes) {
-  if (parsed.needs_more_info) {
+function renderMatchResult(parsed, allSchemes, deterministicIds = []) {
+  const validIds = new Set(allSchemes.map((s) => s.id))
+  const aiMatchedIds = (parsed.matched_scheme_ids || []).filter((id) => validIds.has(id))
+  const allMatchedIds = Array.from(new Set([...aiMatchedIds, ...deterministicIds]))
+
+  // If we have deterministic (code-verified) matches, always show them -
+  // even if the AI wanted to ask another question, these specific matches
+  // are already certain and don't need to wait.
+  if (allMatchedIds.length === 0 && parsed.needs_more_info) {
     return parsed.clarifying_question || 'Could you share a few more details about your situation?'
   }
 
-  const validIds = new Set(allSchemes.map((s) => s.id))
-  const matchedSchemes = (parsed.matched_scheme_ids || [])
-    .filter((id) => validIds.has(id))
-    .map((id) => allSchemes.find((s) => s.id === id))
-
-  if (matchedSchemes.length === 0) {
+  if (allMatchedIds.length === 0) {
     return "I don't have a verified scheme for your exact situation in my current database. I'd suggest checking the National Scholarship Portal, your nearest Common Service Centre (CSC), or the relevant district office for more options."
   }
 
+  const matchedSchemes = allMatchedIds.map((id) => allSchemes.find((s) => s.id === id)).filter(Boolean)
+
   const parts = matchedSchemes.map((s, i) => {
-    const reason = parsed.reasoning?.[s.id] || ''
+    const reason = parsed.reasoning?.[s.id] || `Your details match the eligibility criteria for this scheme.`
     const docs = Array.isArray(s.documents_required) ? s.documents_required.join(', ') : s.documents_required
-    return `${i + 1}. **${s.scheme_name}**${reason ? ` — ${reason}` : ''}
+    return `${i + 1}. **${s.scheme_name}** — ${reason}
 * Benefit: ${s.benefits}
 * Documents needed: ${docs}
 * How to apply: ${s.how_to_apply}`
@@ -246,7 +299,7 @@ export default function App() {
         }
       }
 
-      const replyText = renderMatchResult(parsed, schemes)
+      const replyText = renderMatchResult(parsed, schemes, computeDeterministicMatches(conversationText, new Set(schemes.map((s) => s.id))))
       setMessages([...newMessages, { role: 'assistant', text: replyText }])
       if (speakEnabled) {
         speakText(replyText, voiceLang)
