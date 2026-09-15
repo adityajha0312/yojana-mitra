@@ -94,26 +94,66 @@ function buildSystemInstruction(schemes, conversationText) {
   const likelyRelevant = schemes.filter((s) => relevantCategories.has(s.category))
   const others = schemes.filter((s) => !relevantCategories.has(s.category))
 
-  const formatScheme = (s) => `
-- ${s.scheme_name} (${s.scheme_name_hindi || ''}) [${s.category}, ${s.level}]
-  Eligibility: ${JSON.stringify(s.eligibility_criteria)}
-  Benefits: ${s.benefits}
-  Documents: ${JSON.stringify(s.documents_required)}
-  How to apply: ${s.how_to_apply}`
+  const formatForMatching = (s) => `{"id": "${s.id}", "name": "${s.scheme_name}", "category": "${s.category}", "eligibility": ${JSON.stringify(s.eligibility_criteria)}}`
 
-  return `You are Yojana Mitra, an assistant that matches Indian citizens to government schemes from the list below. This is the ONLY list of schemes you know about - do not mention any other scheme, even real ones from your training (like Mission Vatsalya or PM CARES for Children).
+  return `You are a matching engine for Yojana Mitra, a government scheme assistant. Your ONLY job is to decide which scheme IDs from the list below match the person's situation. You do not write scheme names, amounts, or facts yourself - you only select IDs and give a one-line reason for each.
 
-LIKELY RELEVANT SCHEMES based on the conversation so far - check these carefully first, they are probably what this person needs:
-${likelyRelevant.map(formatScheme).join('\n')}
+LIKELY RELEVANT (check these first, based on the conversation so far):
+${likelyRelevant.map(formatForMatching).join('\n')}
 
-OTHER SCHEMES in the database (less likely to apply here, but check if the person's situation shifts):
-${others.map(formatScheme).join('\n')}
+OTHER SCHEMES (less likely, but check if situation shifts):
+${others.map(formatForMatching).join('\n')}
 
-HOW TO RESPOND:
-1. If you don't yet have enough details to confirm eligibility for the likely relevant schemes above (e.g. exact land size, income, age), ask 1-2 short friendly questions to get just what's missing.
-2. Recommend confidently, not hesitantly. If someone is clearly a farmer, for example, schemes like crop insurance or soil health cards that only require owning farmland (no specific land-size limit) should be recommended immediately - don't wait for every possible detail before mentioning schemes that already clearly apply. Only hold back a specific scheme if it has a specific numeric limit (like "under 2 hectares") that you haven't confirmed yet - and even then, ask for that one missing number rather than refusing everything.
-3. Only say "I don't have a verified scheme for your situation" if you've genuinely checked and nothing in the full database fits - never as a default or safe-feeling fallback when a real match exists above.
-4. Say "Namaste" only in your first reply. Keep replies concise, warm, and easy to read on a phone. Bold only scheme names and key numbers. Match the user's language (English/Hindi/Hinglish).`
+Respond with ONLY a raw JSON object (no markdown, no code fences), exactly this shape:
+{
+  "needs_more_info": boolean,
+  "clarifying_question": "short friendly question, or null if needs_more_info is false",
+  "matched_scheme_ids": ["id_from_list_above", ...],
+  "reasoning": { "id_from_list_above": "one short sentence on why they qualify, in the person's language" }
+}
+
+RULES:
+- "matched_scheme_ids" must ONLY contain ids exactly as given in the lists above (e.g. "pm_kisan", "mp_widow_pension"). Never invent an id or name that isn't in the lists.
+- If you don't have enough details to check eligibility confidently, set needs_more_info to true and ask 1-2 short questions - do not guess.
+- Be confident and thorough once you have enough info: include EVERY scheme whose eligibility criteria the person's details satisfy, not just the first one you find. A person often qualifies for multiple schemes at once (e.g. a widow who is also a senior citizen qualifies for both widow pension AND old age pension - check both).
+- Only return an empty matched_scheme_ids array (with needs_more_info false) if you've genuinely checked and nothing fits - never as a default.
+- Match the person's language for the clarifying_question and reasoning text (English/Hindi/Hinglish).
+- Do not include any text outside the JSON object.`
+}
+
+// Renders the final chat message from OUR verified scheme data, using only
+// Gemini's chosen scheme IDs and short reasoning - never Gemini's own
+// description of scheme facts. This makes it structurally impossible for
+// the AI to state a wrong amount, wrong document, or invented scheme name,
+// since all of that text comes directly from our database, not from the model.
+function renderMatchResult(parsed, allSchemes) {
+  if (parsed.needs_more_info) {
+    return parsed.clarifying_question || 'Could you share a few more details about your situation?'
+  }
+
+  const validIds = new Set(allSchemes.map((s) => s.id))
+  const matchedSchemes = (parsed.matched_scheme_ids || [])
+    .filter((id) => validIds.has(id))
+    .map((id) => allSchemes.find((s) => s.id === id))
+
+  if (matchedSchemes.length === 0) {
+    return "I don't have a verified scheme for your exact situation in my current database. I'd suggest checking the National Scholarship Portal, your nearest Common Service Centre (CSC), or the relevant district office for more options."
+  }
+
+  const parts = matchedSchemes.map((s, i) => {
+    const reason = parsed.reasoning?.[s.id] || ''
+    const docs = Array.isArray(s.documents_required) ? s.documents_required.join(', ') : s.documents_required
+    return `${i + 1}. **${s.scheme_name}**${reason ? ` — ${reason}` : ''}
+* Benefit: ${s.benefits}
+* Documents needed: ${docs}
+* How to apply: ${s.how_to_apply}`
+  })
+
+  const intro = matchedSchemes.length > 1
+    ? 'Based on your details, here are the schemes you may qualify for:'
+    : 'Based on your details, here is a scheme you may qualify for:'
+
+  return `${intro}\n\n${parts.join('\n\n')}`
 }
 
 function Welcome() {
@@ -185,7 +225,21 @@ export default function App() {
     try {
       const conversationText = newMessages.map((m) => m.text).join(' ')
       const systemInstruction = buildSystemInstruction(schemes, conversationText)
-      const replyText = await askGemini(systemInstruction, newMessages)
+      const rawResponse = await askGemini(systemInstruction, newMessages, true)
+
+      let parsed
+      try {
+        parsed = JSON.parse(rawResponse)
+      } catch (parseErr) {
+        // If Gemini didn't return clean JSON for some reason, fail safe by
+        // asking the person to rephrase rather than showing broken output.
+        parsed = {
+          needs_more_info: true,
+          clarifying_question: "Sorry, could you tell me a bit more about your situation (occupation, age, or income)?",
+        }
+      }
+
+      const replyText = renderMatchResult(parsed, schemes)
       setMessages([...newMessages, { role: 'assistant', text: replyText }])
       if (speakEnabled) {
         speakText(replyText, voiceLang)
