@@ -27,7 +27,7 @@ export async function askGemini(systemInstruction, conversationHistory, jsonMode
     })),
   }
   if (jsonMode) {
-    body.generationConfig = { responseMimeType: 'application/json' }
+    body.generationConfig = { responseMimeType: 'application/json', temperature: 0.2 }
   }
 
   let lastError = null
