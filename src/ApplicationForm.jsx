@@ -22,6 +22,9 @@ function fileToBase64(file) {
 }
 
 export default function ApplicationForm({ schemes, onClose }) {
+  // TEMPORARY DEBUG LOGGING - remove once resolved
+  console.log('[YM DEBUG] ApplicationForm received schemes:', schemes, 'length:', schemes?.length, 'isArray:', Array.isArray(schemes))
+
   const [selectedSchemeId, setSelectedSchemeId] = useState(schemes[0]?.id || '')
   const [files, setFiles] = useState([])
   const [previews, setPreviews] = useState([])
