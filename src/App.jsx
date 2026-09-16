@@ -5,6 +5,7 @@ import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoice
 import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache } from './lib/offline'
 import Logo from './Logo'
 import { MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon } from './Icons'
+import ApplicationForm from './ApplicationForm'
 import LandingPage from './LandingPage'
 
 const QUICK_LINKS = [
@@ -132,6 +133,7 @@ export default function App() {
   const [loadingSchemes, setLoadingSchemes] = useState(true)
   const [error, setError] = useState(null)
   const [showLinks, setShowLinks] = useState(false)
+  const [showApplyForm, setShowApplyForm] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState('en-IN')
   const [speakEnabled, setSpeakEnabled] = useState(false)
@@ -281,6 +283,9 @@ export default function App() {
               {speakEnabled ? ' On' : ' Off'}
             </button>
           )}
+          <button className="ym-icon-btn" onClick={() => setShowApplyForm(true)}>
+            Apply for Scheme
+          </button>
           <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
             Official Sites
           </button>
@@ -383,6 +388,10 @@ export default function App() {
           Send
         </button>
       </div>
+
+      {showApplyForm && (
+        <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} />
+      )}
     </div>
   )
 }
