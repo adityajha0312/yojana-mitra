@@ -1,419 +1,208 @@
 import Logo from './Logo'
 
 const categories = [
-  {
-    title: 'Farmers',
-    desc: 'Kisan Samman, crop support & more',
-    icon: '🌾',
-  },
-  {
-    title: 'Students',
-    desc: 'Scholarships, education & careers',
-    icon: '🎓',
-  },
-  {
-    title: 'Women',
-    desc: 'Safety, empowerment & welfare',
-    icon: '👩',
-  },
-  {
-    title: 'Senior Citizens',
-    desc: 'Pension, healthcare & support',
-    icon: '❤️',
-  },
-  {
-    title: 'Families',
-    desc: 'Housing, ration & essential support',
-    icon: '🏠',
-  },
-  {
-    title: 'Youth',
-    desc: 'Skills, employment & opportunities',
-    icon: '🚀',
-  },
+  { label: 'Farmers', short: '01', icon: <path d="M12 20V8M12 8C9.2 8.4 7.5 10 7.5 13.2 10.2 13.1 12 11.7 12 8ZM12 9.2C14.7 9.5 16.5 11.2 16.5 14.1 13.8 14 12 12.5 12 9.2Z" /> },
+  { label: 'Students', short: '02', icon: <path d="m4 9 8-4 8 4-8 4-8-4Zm3 2v5c2.6 2.4 7.4 2.4 10 0v-5M20 9v5" /> },
+  { label: 'Women', short: '03', icon: <path d="M12 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 13v7M8.5 17h7" /> },
+  { label: 'Senior Citizens', short: '04', icon: <path d="M12 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM6 20c.4-3.8 2.5-6 6-6s5.6 2.2 6 6M16.5 16.5l2 2" /> },
+  { label: 'Families', short: '05', icon: <path d="M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16.5 11a2.5 2.5 0 1 0 0-5M4 20c.3-4 2-6 5-6s4.7 2 5 6M14 15c3.2-.2 5.1 1.5 5.5 5" /> },
+  { label: 'Youth', short: '06', icon: <path d="M12 4 20 8 12 12 4 8l8-4ZM7 10v5c2.6 2.4 7.4 2.4 10 0v-5M20 8v6" /> },
+]
+
+const highlights = [
+  ['01', 'Tell us about you', 'Share your age, work, family or situation.'],
+  ['02', 'Get matched', 'See schemes that fit your profile.'],
+  ['03', 'Know what to do', 'Documents, benefits and application steps.'],
 ]
 
 export default function LandingPage({ onStart }) {
   return (
-    <div className="ym-new-landing">
+    <div className="ym-landing">
+      <div className="ym-noise" />
+      <div className="ym-orb ym-orb-one" />
+      <div className="ym-orb ym-orb-two" />
 
-      {/* TOP NAVIGATION */}
-      <header className="ym-new-nav">
-
-        <div className="ym-new-brand">
-          <div className="ym-new-logo">
-            <Logo size={45} />
-          </div>
-
+      <nav className="ym-landing-nav">
+        <div className="ym-brand">
+          <div className="ym-brand-mark"><Logo size={42} /></div>
           <div>
-            <div className="ym-new-brand-name">
-              Yojana <span>Mitra</span>
-            </div>
-            <div className="ym-new-brand-sub">
-              Your Government Scheme Companion
-            </div>
+            <div className="ym-brand-name">Yojana <span>Mitra</span></div>
+            <div className="ym-brand-caption">Your scheme companion</div>
           </div>
         </div>
+        <div className="ym-nav-trust"><span className="ym-live-dot" /> Made for citizens</div>
+      </nav>
 
-        <nav className="ym-new-nav-links">
-          <a href="#home">Home</a>
-          <a href="#schemes">Schemes</a>
-          <a href="#how">How It Works</a>
-          <a href="#about">About</a>
-        </nav>
-
-        <div className="ym-new-nav-right">
-          <span className="ym-language">
-            🌐 English ▾
-          </span>
-
-          <button
-            className="ym-nav-start"
-            onClick={onStart}
-          >
-            Start Now →
-          </button>
-        </div>
-
-      </header>
-
-
-      {/* HERO */}
-      <main id="home" className="ym-new-hero">
-
-        <section className="ym-new-hero-left">
-
-          <div className="ym-new-badge">
-            ✦ Government Schemes • One Platform • For You
-          </div>
+      <main className="ym-landing-main">
+        <section className="ym-hero-copy">
+          <div className="ym-eyebrow"><span>✦</span> Government schemes, made simple</div>
 
           <h1>
-            Your Dreams.
+            Benefits you deserve.
             <br />
-            <span>Our Schemes.</span>
+            <em>Guidance you can trust.</em>
           </h1>
 
-          <p className="ym-new-description">
-            Yojana Mitra helps you discover government schemes that
-            may match your profile — with simple explanations,
-            eligibility guidance, required documents and application
-            steps in a language you understand.
+          <p className="ym-hero-text">
+            Yojana Mitra helps you discover government schemes that may fit your life —
+            then shows you the benefit, documents and next steps in plain language.
           </p>
 
-          {/* FEATURES */}
-          <div className="ym-feature-row">
-
-            <div className="ym-feature">
-              <span>⚡</span>
-              <div>
-                <strong>Easy to Understand</strong>
-                <small>Simple information</small>
-              </div>
-            </div>
-
-            <div className="ym-feature">
-              <span>✦</span>
-              <div>
-                <strong>Personalised</strong>
-                <small>Recommendations</small>
-              </div>
-            </div>
-
-            <div className="ym-feature">
-              <span>🎙</span>
-              <div>
-                <strong>Voice Support</strong>
-                <small>Speak naturally</small>
-              </div>
-            </div>
-
-            <div className="ym-feature">
-              <span>🛡</span>
-              <div>
-                <strong>Secure & Reliable</strong>
-                <small>Citizen focused</small>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="ym-new-actions">
-
-            <button
-              className="ym-primary-button"
-              onClick={onStart}
-            >
-              Find My Schemes
-              <span>→</span>
+          <div className="ym-hero-actions">
+            <button className="ym-hero-cta" onClick={onStart}>
+              <span>Find my schemes</span>
+              <span className="ym-arrow">→</span>
             </button>
 
-            <button
-              className="ym-secondary-button"
-              onClick={onStart}
-            >
-              ▶ How It Works
-            </button>
-
+            <div className="ym-voice-note">
+              <span className="ym-wave">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
+              Type or speak naturally
+            </div>
           </div>
 
-          <div className="ym-trust-row">
-            <span>✓ Central Government</span>
-            <span>✓ Madhya Pradesh</span>
-            <span>✓ Voice Friendly</span>
-            <span>✓ Mobile Ready</span>
+          <div className="ym-mini-trust">
+            <span><b>✓</b> MP + Central schemes</span>
+            <span><b>✓</b> Simple explanations</span>
+            <span><b>✓</b> Voice friendly</span>
           </div>
-
         </section>
 
+        <section className="ym-hero-card" aria-label="How Yojana Mitra works">
+          <div className="ym-card-glow" />
 
-        {/* HERO RIGHT */}
-        <section className="ym-new-hero-right">
+          <div className="ym-card-topline">
+            <span className="ym-chip">
+              <span className="ym-pulse-dot" />
+              AI scheme guide
+            </span>
 
-          <div className="ym-hero-glow" />
-
-          <div className="ym-citizen-illustration">
-
-            <div className="ym-sun" />
-
-            <div className="ym-landscape">
-              <span className="ym-tree tree-one">🌳</span>
-              <span className="ym-tree tree-two">🌳</span>
-              <span className="ym-tree tree-three">🌳</span>
-            </div>
-
-            <div className="ym-citizens">
-
-              <div className="ym-person">
-                <div className="ym-person-head">👩</div>
-                <div className="ym-person-body orange" />
-              </div>
-
-              <div className="ym-person">
-                <div className="ym-person-head">👨</div>
-                <div className="ym-person-body blue" />
-              </div>
-
-              <div className="ym-person">
-                <div className="ym-person-head">👴</div>
-                <div className="ym-person-body cream" />
-              </div>
-
-              <div className="ym-person">
-                <div className="ym-person-head">👧</div>
-                <div className="ym-person-body purple" />
-              </div>
-
-            </div>
-
-            <div className="ym-india-message">
-              <strong>Sarkari Yojanaon</strong>
-              <span>ka Sahi Margdarshak</span>
-            </div>
-
+            <span className="ym-card-menu">•••</span>
           </div>
 
-
-          {/* CHAT PREVIEW */}
-          <div className="ym-launch-chat">
-
-            <div className="ym-launch-chat-head">
-
-              <div className="ym-launch-avatar">
-                <Logo size={42} />
-              </div>
-
-              <div>
-                <strong>Namaste! I'm Yojana Mitra 👋</strong>
-                <span>Let's find what you may be eligible for.</span>
-              </div>
-
-              <div className="ym-online-dot" />
-
+          <div className="ym-assistant-intro">
+            <div className="ym-assistant-avatar">
+              <Logo size={48} />
             </div>
 
-            <div className="ym-suggestion-row">
-              <button onClick={onStart}>
-                I'm a farmer with 2 acres
-              </button>
-
-              <button onClick={onStart}>
-                I'm a student
-              </button>
-
-              <button onClick={onStart}>
-                I need business support
-              </button>
+            <div>
+              <strong>Namaste! I'm Yojana Mitra.</strong>
+              <span>Let's find what you may be eligible for.</span>
             </div>
-
-            <button
-              className="ym-launch-input"
-              onClick={onStart}
-            >
-              <span>🌐</span>
-              Ask, Type or Speak — I'll guide you.
-              <b>🎙</b>
-            </button>
-
           </div>
 
+          <div className="ym-profile-card">
+            <div className="ym-profile-label">
+              A simple conversation
+            </div>
+
+            <div className="ym-message user">
+              I'm a farmer with 2 acres of land.
+            </div>
+
+            <div className="ym-message assistant">
+              <span className="ym-tick">✓</span>
+              I can help you explore relevant schemes.
+            </div>
+          </div>
+
+          <div className="ym-match-card">
+            <div className="ym-match-icon">✦</div>
+
+            <div className="ym-match-copy">
+              <span>Potential matches</span>
+              <strong>Personalised for you</strong>
+            </div>
+
+            <div className="ym-match-bars">
+              <i />
+              <i />
+              <i />
+            </div>
+          </div>
+
+          <div className="ym-card-footer">
+            <span>🔒 Your answers stay private</span>
+            <span>Works on mobile</span>
+          </div>
         </section>
-
       </main>
 
-
-      {/* SCHEME CATEGORIES */}
-      <section
-        id="schemes"
-        className="ym-new-section"
-      >
-
-        <div className="ym-section-title">
-          <span>EXPLORE SCHEMES</span>
-
-          <h2>
-            Find support for your situation.
-          </h2>
-
-          <p>
-            Choose a category that describes you and let Yojana Mitra
-            help you explore relevant government schemes.
-          </p>
+      <section className="ym-how">
+        <div className="ym-section-heading">
+          <span>HOW IT WORKS</span>
+          <h2>From confusion to clarity.</h2>
         </div>
 
+        <div className="ym-steps">
+          {highlights.map(([number, title, text]) => (
+            <div className="ym-step" key={number}>
+              <span className="ym-step-number">{number}</span>
 
-        <div className="ym-category-cards">
+              <div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          {categories.map((category) => (
+      <section className="ym-categories">
+        <div className="ym-category-heading">
+          <span>BUILT FOR REAL LIFE</span>
+          <h2>Start with what describes you.</h2>
+        </div>
+
+        <div className="ym-category-grid">
+          {categories.map((cat) => (
             <button
-              key={category.title}
-              className="ym-big-category"
+              className="ym-category"
+              key={cat.label}
               onClick={onStart}
             >
-
-              <div className="ym-category-icon">
-                {category.icon}
-              </div>
-
-              <div className="ym-category-content">
-                <strong>{category.title}</strong>
-                <span>{category.desc}</span>
-              </div>
-
-              <span className="ym-category-arrow">
-                →
+              <span className="ym-category-number">
+                {cat.short}
               </span>
 
+              <span className="ym-category-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.55"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {cat.icon}
+                </svg>
+              </span>
+
+              <span>{cat.label}</span>
+
+              <span className="ym-category-arrow">↗</span>
             </button>
           ))}
-
         </div>
-
       </section>
 
-
-      {/* HOW IT WORKS */}
-      <section
-        id="how"
-        className="ym-how-section"
-      >
-
-        <div className="ym-section-title centered">
-          <span>HOW IT WORKS</span>
-
-          <h2>
-            From confusion to clarity.
-          </h2>
-
-          <p>
-            Getting information about government schemes doesn't
-            have to be complicated.
-          </p>
+      <footer className="ym-landing-footer">
+        <div className="ym-footer-brand">
+          <Logo size={30} />
+          <strong>Yojana Mitra</strong>
         </div>
-
-
-        <div className="ym-process">
-
-          <div className="ym-process-card">
-            <div className="ym-process-number">01</div>
-            <div className="ym-process-icon">👤</div>
-            <h3>Tell us about yourself</h3>
-            <p>
-              Share your age, occupation, family situation,
-              education or other relevant details.
-            </p>
-          </div>
-
-          <div className="ym-process-line" />
-
-          <div className="ym-process-card">
-            <div className="ym-process-number">02</div>
-            <div className="ym-process-icon">✦</div>
-            <h3>Get relevant schemes</h3>
-            <p>
-              Yojana Mitra analyses your information and
-              highlights schemes that may fit your situation.
-            </p>
-          </div>
-
-          <div className="ym-process-line" />
-
-          <div className="ym-process-card">
-            <div className="ym-process-number">03</div>
-            <div className="ym-process-icon">📄</div>
-            <h3>Know your next step</h3>
-            <p>
-              Understand benefits, eligibility, documents
-              and how to apply.
-            </p>
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* FINAL CTA */}
-      <section className="ym-final-cta">
-
-        <div>
-          <span>READY TO GET STARTED?</span>
-
-          <h2>
-            Your next opportunity
-            <br />
-            may be one conversation away.
-          </h2>
-        </div>
-
-        <button onClick={onStart}>
-          Find My Schemes →
-        </button>
-
-      </section>
-
-
-      {/* FOOTER */}
-      <footer className="ym-new-footer">
-
-        <div className="ym-footer-logo">
-          <Logo size={35} />
-          <div>
-            <strong>Yojana Mitra</strong>
-            <span>Your Scheme Companion</span>
-          </div>
-        </div>
-
-        <p>
-          Helping citizens understand and navigate government
-          benefits with clarity.
-        </p>
 
         <span>
-          © 2026 Yojana Mitra
+          Helping citizens navigate government benefits with clarity.
         </span>
 
+        <span>© 2026</span>
       </footer>
-
     </div>
   )
 }
