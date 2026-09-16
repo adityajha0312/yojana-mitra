@@ -74,3 +74,56 @@ export async function askGemini(systemInstruction, conversationHistory, jsonMode
 
   throw new Error(lastError || 'Unknown error calling Gemini')
 }
+
+// Extracts fields from photos of documents (Aadhaar, land records, etc.)
+// using Gemini's native image understanding - no separate OCR library
+// needed. Used to pre-fill a scheme application review form.
+export async function extractDocumentFields(images, schemeName, requiredDocs) {
+  const docsText = Array.isArray(requiredDocs) ? requiredDocs.join(', ') : requiredDocs
+
+  const promptText = `You are extracting information from photos of Indian government documents, to help pre-fill an application for the scheme "${schemeName}". The documents typically needed for this scheme are: ${docsText}.
+
+Look carefully at the attached image(s) and extract any of these fields you can actually read: Full Name, Date of Birth, Gender, Aadhaar Number, Address, Father's or Husband's Name, Bank Account Number, IFSC Code, Bank Name, Land/Khasra/Khatauni Number, Village, District, State, Annual Income (if shown on a document), Category (SC/ST/OBC/General, if shown), Mobile Number.
+
+Respond with ONLY a raw JSON object (no markdown, no code fences), exactly this shape:
+{
+  "extracted": { "Full Name": "value or null", "Date of Birth": "value or null", ... (include every field listed above as a key) },
+  "notes": "brief note on image quality or anything unclear, or null if nothing to flag"
+}
+
+CRITICAL: If a field is not clearly visible or not present in the image(s), use null for it - never guess, infer, or invent a value that isn't actually shown in the document.`
+
+  const parts = [{ text: promptText }]
+  for (const img of images) {
+    parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } })
+  }
+
+  const body = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
+  }
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text()
+    throw new Error(`Document extraction failed (${response.status}): ${errText}`)
+  }
+
+  const data = await response.json()
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) throw new Error('No response from document extraction')
+
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    throw new Error('Could not read the extracted details - please try again with a clearer photo.')
+  }
+}
