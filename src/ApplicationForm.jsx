@@ -21,10 +21,7 @@ function fileToBase64(file) {
   })
 }
 
-export default function ApplicationForm({ schemes, onClose }) {
-  // TEMPORARY DEBUG LOGGING - remove once resolved
-  console.log('[YM DEBUG] ApplicationForm received schemes:', schemes, 'length:', schemes?.length, 'isArray:', Array.isArray(schemes))
-
+export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }) {
   const [selectedSchemeId, setSelectedSchemeId] = useState(schemes[0]?.id || '')
   const [files, setFiles] = useState([])
   const [previews, setPreviews] = useState([])
@@ -142,7 +139,12 @@ export default function ApplicationForm({ schemes, onClose }) {
 
         <fieldset disabled={!consentGiven} style={styles.fieldset}>
         {schemes.length === 0 ? (
-          <p style={styles.consentHint}>Scheme list is still loading - please wait a moment and try again.</p>
+          <div>
+            <p style={styles.consentHint}>Scheme list didn't load. This can happen after a one-time network hiccup.</p>
+            <button className="ym-cta" style={styles.extractBtn} onClick={onRetryLoadSchemes}>
+              Retry Loading Schemes
+            </button>
+          </div>
         ) : (
           <>
         <label style={styles.label}>Which scheme are you applying for?</label>
