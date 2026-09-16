@@ -266,156 +266,688 @@ export default function App() {
     return () => stopSpeaking()
   }, [])
 
-  if (!started) {
-    return <LandingPage onStart={() => setStarted(true)} />
-  }
-
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
-          <Logo size={32} />
-          <div>
-            <h1 style={styles.title}>Yojana Mitra</h1>
-            <p style={styles.subtitle}>Your Government Scheme Assistant</p>
-          </div>
+  <div className="ym-app-shell">
+
+    {/* SIDEBAR */}
+    <aside className="ym-sidebar">
+
+      <div className="ym-sidebar-brand">
+        <Logo size={42} />
+
+        <div>
+          <strong>Yojana Mitra</strong>
+          <span>Your Scheme Companion</span>
         </div>
-        <div style={styles.headerActions}>
+      </div>
+
+
+      <button
+        className="ym-new-chat-button"
+        onClick={handleClearChat}
+      >
+        <span>＋</span>
+        New Chat
+      </button>
+
+
+      <nav className="ym-sidebar-nav">
+
+        <button className="active">
+          <span>⌂</span>
+          Home
+        </button>
+
+        <button onClick={() => setShowLinks(true)}>
+          <span>▦</span>
+          Schemes
+        </button>
+
+        <button onClick={() => setShowApplyForm(true)}>
+          <span>▤</span>
+          My Applications
+        </button>
+
+        <button>
+          <span>♡</span>
+          Saved Schemes
+        </button>
+
+        <button>
+          <span>♙</span>
+          Profile
+        </button>
+
+        <button>
+          <span>⚙</span>
+          Settings
+        </button>
+
+      </nav>
+
+
+      {/* SIDEBAR HELP */}
+      <div className="ym-sidebar-help">
+
+        <div className="ym-help-avatar">
+          <Logo size={52} />
+        </div>
+
+        <strong>Need help?</strong>
+
+        <p>
+          Use voice, type or ask in your preferred language.
+        </p>
+
+        {isVoiceInputSupported && (
+          <button onClick={handleMicClick}>
+            🎙 Try Voice
+          </button>
+        )}
+
+      </div>
+
+
+      <div className="ym-sidebar-status">
+
+        <span className={isOnline ? 'online' : 'offline'} />
+
+        <div>
+          <strong>
+            {isOnline ? 'Online' : 'Offline'}
+          </strong>
+
+          <small>
+            {isOnline
+              ? 'All features working'
+              : 'Limited offline mode'}
+          </small>
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    {/* MAIN APPLICATION */}
+    <section className="ym-app-main">
+
+      {/* TOP BAR */}
+      <header className="ym-app-topbar">
+
+        <div className="ym-topbar-search">
+          <span>⌕</span>
+
+          <input
+            placeholder="Search schemes, benefits, or ask a question..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.target.value.trim()) {
+                handleSend(e.target.value)
+                e.target.value = ''
+              }
+            }}
+          />
+        </div>
+
+
+        <div className="ym-topbar-actions">
+
           {isVoiceInputSupported && (
             <button
-              className="ym-icon-btn"
-              onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
-              title="Voice input language"
+              onClick={() =>
+                setVoiceLang((l) =>
+                  l === 'en-IN' ? 'hi-IN' : 'en-IN'
+                )
+              }
             >
-              {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
+              🌐 {voiceLang === 'en-IN' ? 'English' : 'हिन्दी'}
             </button>
           )}
+
           {isVoiceOutputSupported && (
             <button
-              className="ym-icon-btn"
               onClick={() => {
                 if (speakEnabled) stopSpeaking()
                 setSpeakEnabled((s) => !s)
               }}
-              title="Read replies aloud"
             >
-              {speakEnabled ? <SpeakerOnIcon size={15} /> : <SpeakerOffIcon size={15} />}
-              {speakEnabled ? ' On' : ' Off'}
+              {speakEnabled ? '🔊' : '🔇'}
             </button>
           )}
-          <button className="ym-icon-btn" onClick={() => setShowApplyForm(true)}>
-            Apply for Scheme
+
+          <button
+            onClick={() => setShowApplyForm(true)}
+          >
+            Apply
           </button>
-          <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
-            Official Sites
+
+          <button onClick={handleClearChat}>
+            ↻
           </button>
-          <button className="ym-icon-btn" onClick={handleClearChat}>
-            Clear Chat
-          </button>
+
         </div>
+
       </header>
 
+
+      {/* OFFLINE */}
       {!isOnline && (
-        <div style={styles.offlineBanner}>
-          You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
-          {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
+        <div className="ym-modern-offline">
+          <span>⚠</span>
+
+          You're offline. Saved scheme information is available,
+          but AI matching requires an internet connection.
+
+          {usingCachedSchemes &&
+            ' Showing your saved scheme data.'}
         </div>
       )}
 
+
+      {/* OFFICIAL LINKS */}
       {showLinks && (
-        <div style={styles.linksBar}>
-          {QUICK_LINKS.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ym-link-pill"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      )}
+        <div className="ym-modern-links">
 
-      <div style={styles.chatArea}>
-        {loadingSchemes ? (
-          <p style={styles.systemNote}>Loading scheme database...</p>
-        ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              className="ym-bubble"
-              style={{
-                ...styles.bubble,
-                ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
-              }}
-            >
-              {msg.role === 'assistant' ? <MessageContent text={msg.text} /> : msg.text}
-            </div>
-          ))
-        )}
-        {loading && (
-          <div style={{ ...styles.bubble, ...styles.assistantBubble }} className="ym-bubble">
-            <span className="ym-typing">
-              <span></span><span></span><span></span>
-            </span>
-          </div>
-        )}
-        {error && <div style={styles.errorNote}>⚠️ {error}</div>}
-        {!isOnline && schemes.length > 0 && (
-          <div style={styles.offlineSchemeList}>
-            <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
-            {schemes.map((s) => (
-              <div key={s.id} style={styles.offlineSchemeItem}>
-                <strong>{s.scheme_name}</strong>
-                <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
-                <div>{s.description}</div>
-              </div>
+          <strong>Official Government Resources</strong>
+
+          <div>
+            {QUICK_LINKS.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {link.label} →
+              </a>
             ))}
           </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
 
-      <div style={styles.inputArea}>
-        {isVoiceInputSupported && (
-          <button
-            className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
-            onClick={handleMicClick}
-            disabled={loadingSchemes || !isOnline}
-            title={isListening ? 'Stop listening' : 'Speak your message'}
-            type="button"
-          >
-            {isListening ? <StopIcon size={17} color="white" /> : <MicIcon size={18} />}
-          </button>
-        )}
-        <textarea
-          style={styles.textInput}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
-          rows={2}
-          disabled={loadingSchemes || !isOnline}
-        />
-        <button
-          className="ym-send-btn"
-          style={styles.sendButton}
-          onClick={() => handleSend()}
-          disabled={loading || loadingSchemes || !input.trim() || !isOnline}
-        >
-          Send
-        </button>
-      </div>
-
-      {showApplyForm && (
-        <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} onRetryLoadSchemes={retryLoadSchemes} />
+        </div>
       )}
-    </div>
-  )
-}
 
+
+      {/* CONTENT */}
+      <main className="ym-dashboard">
+
+        {/* CHAT COLUMN */}
+        <section className="ym-chat-panel">
+
+          <div className="ym-chat-header">
+
+            <div className="ym-chat-identity">
+
+              <div className="ym-chat-avatar">
+                <Logo size={43} />
+              </div>
+
+              <div>
+                <strong>Yojana Mitra</strong>
+
+                <span>
+                  <i />
+                  Government Scheme Assistant
+                </span>
+              </div>
+
+            </div>
+
+
+            <div className="ym-chat-header-actions">
+
+              <button onClick={handleClearChat}>
+                + New Chat
+              </button>
+
+              <button
+                onClick={() => setShowApplyForm(true)}
+              >
+                Apply for Scheme
+              </button>
+
+            </div>
+
+          </div>
+
+
+          {/* CHAT BODY */}
+          <div className="ym-modern-chat-body">
+
+            {loadingSchemes ? (
+
+              <div className="ym-chat-loading">
+                <div className="ym-loading-spinner" />
+                Loading verified scheme information...
+              </div>
+
+            ) : (
+
+              <>
+                {messages.map((msg, i) => (
+
+                  <div
+                    key={i}
+                    className={
+                      msg.role === 'user'
+                        ? 'ym-modern-message user'
+                        : 'ym-modern-message assistant'
+                    }
+                  >
+
+                    {msg.role === 'assistant' && (
+                      <div className="ym-message-avatar">
+                        <Logo size={32} />
+                      </div>
+                    )}
+
+                    <div className="ym-message-content">
+
+                      {msg.role === 'assistant' && (
+                        <small>YOJANA MITRA</small>
+                      )}
+
+                      <div className="ym-message-bubble">
+
+                        {msg.role === 'assistant'
+                          ? <MessageContent text={msg.text} />
+                          : msg.text}
+
+                      </div>
+
+                      {msg.role === 'user' && (
+                        <span className="ym-message-time">
+                          You · Just now ✓
+                        </span>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+
+                {/* QUICK START OPTIONS */}
+                {messages.length === 1 && !loading && (
+
+                  <div className="ym-start-options">
+
+                    <span>Try asking...</span>
+
+                    <div>
+
+                      <button
+                        onClick={() =>
+                          handleSend(
+                            'I am a farmer with 2 acres of land'
+                          )
+                        }
+                      >
+                        🌾 I'm a farmer with 2 acres
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleSend(
+                            'I am a student looking for scholarship'
+                          )
+                        }
+                      >
+                        🎓 I'm a student
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleSend(
+                            'I need support for my business'
+                          )
+                        }
+                      >
+                        💼 I need business support
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleSend(
+                            'I am a senior citizen'
+                          )
+                        }
+                      >
+                        ❤️ I'm a senior citizen
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                )}
+
+
+                {loading && (
+
+                  <div className="ym-modern-message assistant">
+
+                    <div className="ym-message-avatar">
+                      <Logo size={32} />
+                    </div>
+
+                    <div className="ym-message-content">
+
+                      <small>YOJANA MITRA</small>
+
+                      <div className="ym-message-bubble">
+                        <span className="ym-modern-typing">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )}
+
+
+                {error && (
+                  <div className="ym-modern-error">
+                    ⚠ {error}
+                  </div>
+                )}
+
+
+                {!isOnline && schemes.length > 0 && (
+
+                  <div className="ym-offline-schemes">
+
+                    <h3>
+                      Saved schemes available offline
+                    </h3>
+
+                    {schemes.map((s) => (
+                      <div key={s.id}>
+
+                        <strong>
+                          {s.scheme_name}
+                        </strong>
+
+                        <span>
+                          {s.category} · {s.level}
+                        </span>
+
+                        <p>
+                          {s.description}
+                        </p>
+
+                      </div>
+                    ))}
+
+                  </div>
+
+                )}
+
+                <div ref={bottomRef} />
+
+              </>
+
+            )}
+
+          </div>
+
+
+          {/* INPUT */}
+          <div className="ym-modern-input-area">
+
+            <button
+              className="ym-add-button"
+              type="button"
+            >
+              +
+            </button>
+
+
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                !isOnline
+                  ? 'Reconnect to continue chatting...'
+                  : isListening
+                    ? 'Listening... speak now'
+                    : "Ask anything about government schemes..."
+              }
+              rows={1}
+              disabled={loadingSchemes || !isOnline}
+            />
+
+
+            {isVoiceInputSupported && (
+              <button
+                className={
+                  isListening
+                    ? 'ym-modern-mic listening'
+                    : 'ym-modern-mic'
+                }
+                onClick={handleMicClick}
+                disabled={loadingSchemes || !isOnline}
+              >
+                {isListening
+                  ? <StopIcon size={18} color="white" />
+                  : <MicIcon size={19} />}
+              </button>
+            )}
+
+
+            <button
+              className="ym-modern-send"
+              onClick={() => handleSend()}
+              disabled={
+                loading ||
+                loadingSchemes ||
+                !input.trim() ||
+                !isOnline
+              }
+            >
+              →
+            </button>
+
+          </div>
+
+
+          <div className="ym-chat-disclaimer">
+            Yojana Mitra provides guidance using available scheme
+            information. Always verify final eligibility on official
+            government portals.
+          </div>
+
+        </section>
+
+
+        {/* RIGHT INFORMATION PANEL */}
+        <aside className="ym-info-panel">
+
+          <div className="ym-info-card">
+
+            <div className="ym-info-card-title">
+              <strong>Popular Schemes</strong>
+              <button
+                onClick={() => setShowLinks(true)}
+              >
+                View All →
+              </button>
+            </div>
+
+
+            <div className="ym-popular-list">
+
+              <div>
+                <span>🌱</span>
+                <section>
+                  <strong>PM Kisan Samman Nidhi</strong>
+                  <small>For Farmers</small>
+                </section>
+                <b>›</b>
+              </div>
+
+              <div>
+                <span>🏠</span>
+                <section>
+                  <strong>PM Awas Yojana</strong>
+                  <small>For Housing</small>
+                </section>
+                <b>›</b>
+              </div>
+
+              <div>
+                <span>🎓</span>
+                <section>
+                  <strong>National Scholarship Portal</strong>
+                  <small>For Students</small>
+                </section>
+                <b>›</b>
+              </div>
+
+              <div>
+                <span>❤️</span>
+                <section>
+                  <strong>Ayushman Bharat</strong>
+                  <small>Healthcare</small>
+                </section>
+                <b>›</b>
+              </div>
+
+              <div>
+                <span>🔥</span>
+                <section>
+                  <strong>Ujjwala Yojana</strong>
+                  <small>Clean Energy</small>
+                </section>
+                <b>›</b>
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* IMPACT */}
+          <div className="ym-impact-card">
+
+            <div className="ym-info-card-title">
+              <strong>Real Impact</strong>
+            </div>
+
+            <div className="ym-impact-grid">
+
+              <div>
+                <strong>12Cr+</strong>
+                <span>Beneficiaries</span>
+              </div>
+
+              <div>
+                <strong>400+</strong>
+                <span>Schemes</span>
+              </div>
+
+              <div>
+                <strong>100%</strong>
+                <span>Transparent</span>
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* QUICK LINKS */}
+          <div className="ym-info-card">
+
+            <div className="ym-info-card-title">
+              <strong>Quick Links</strong>
+            </div>
+
+            <div className="ym-quick-links">
+
+              <button onClick={() => setShowApplyForm(true)}>
+                ✓ Check Eligibility
+                <span>→</span>
+              </button>
+
+              <button onClick={() => setShowLinks(true)}>
+                ▦ View All Schemes
+                <span>→</span>
+              </button>
+
+              <button>
+                ? Frequently Asked Questions
+                <span>→</span>
+              </button>
+
+              <button>
+                ☎ Contact Support
+                <span>→</span>
+              </button>
+
+            </div>
+
+          </div>
+
+
+          {/* VOICE CARD */}
+          <div className="ym-voice-card">
+
+            <div className="ym-voice-card-avatar">
+              <Logo size={55} />
+            </div>
+
+            <strong>
+              Prefer speaking?
+            </strong>
+
+            <p>
+              Ask Yojana Mitra using your voice in
+              English or Hindi.
+            </p>
+
+            {isVoiceInputSupported && (
+              <button onClick={handleMicClick}>
+                🎙 Try Voice
+              </button>
+            )}
+
+          </div>
+
+
+          <div className="ym-india-card">
+            <span>🇮🇳</span>
+
+            <strong>
+              Sarkari Yojanaon ka
+              <br />
+              Sahi Margdarshak
+            </strong>
+
+          </div>
+
+        </aside>
+
+      </main>
+
+    </section>
+
+
+    {showApplyForm && (
+      <ApplicationForm
+        schemes={schemes}
+        onClose={() => setShowApplyForm(false)}
+        onRetryLoadSchemes={retryLoadSchemes}
+      />
+    )}
+
+  </div>
+)
 const styles = {
   container: {
     display: 'flex',
