@@ -144,11 +144,31 @@ export default function App() {
 
   useEffect(() => {
     fetchAllSchemes().then(({ schemes, fromCache }) => {
+      if (schemes.length === 0) {
+        // First attempt came back empty (likely a transient network hiccup) -
+        // automatically retry once after a short delay before giving up.
+        setTimeout(() => {
+          fetchAllSchemes().then((retryResult) => {
+            setSchemes(retryResult.schemes)
+            setUsingCachedSchemes(retryResult.fromCache)
+            setLoadingSchemes(false)
+          })
+        }, 2000)
+      } else {
+        setSchemes(schemes)
+        setUsingCachedSchemes(fromCache)
+        setLoadingSchemes(false)
+      }
+    })
+  }, [])
+
+  function retryLoadSchemes() {
+    fetchAllSchemes().then(({ schemes, fromCache }) => {
       setSchemes(schemes)
       setUsingCachedSchemes(fromCache)
       setLoadingSchemes(false)
     })
-  }, [])
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeToConnectionStatus((online) => {
@@ -390,7 +410,7 @@ export default function App() {
       </div>
 
       {showApplyForm && (
-        <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} />
+        <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} onRetryLoadSchemes={retryLoadSchemes} />
       )}
     </div>
   )
