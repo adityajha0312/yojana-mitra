@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { extractDocumentFields } from './lib/gemini'
 
 const FIELD_ORDER = [
@@ -41,6 +41,12 @@ export default function ApplicationForm({ schemes, onClose }) {
     revokePreviews()
     onClose()
   }
+
+  useEffect(() => {
+    if (!selectedSchemeId && schemes.length > 0) {
+      setSelectedSchemeId(schemes[0].id)
+    }
+  }, [schemes, selectedSchemeId])
 
   function handleFileChange(e) {
     revokePreviews()
@@ -132,6 +138,10 @@ export default function ApplicationForm({ schemes, onClose }) {
         )}
 
         <fieldset disabled={!consentGiven} style={styles.fieldset}>
+        {schemes.length === 0 ? (
+          <p style={styles.consentHint}>Scheme list is still loading - please wait a moment and try again.</p>
+        ) : (
+          <>
         <label style={styles.label}>Which scheme are you applying for?</label>
         <select
           style={styles.select}
@@ -190,6 +200,8 @@ export default function ApplicationForm({ schemes, onClose }) {
               Download Application Summary
             </button>
           </div>
+        )}
+          </>
         )}
         </fieldset>
 
