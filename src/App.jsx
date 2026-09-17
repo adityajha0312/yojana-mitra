@@ -4,7 +4,11 @@ import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
 import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache } from './lib/offline'
 import Logo from './Logo'
-import { MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon } from './Icons'
+import {
+  MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon, MenuIcon, CloseIcon, PlusChatIcon,
+  GridIcon, DocumentIcon, BookmarkIcon, UserCircleIcon, SettingsGearIcon, GlobeIcon,
+  SendIcon, SearchIcon,
+} from './Icons'
 import ApplicationForm from './ApplicationForm'
 import LandingPage from './LandingPage'
 
@@ -126,6 +130,7 @@ function Welcome() {
 
 export default function App() {
   const [started, setStarted] = useState(false)
+  const [pendingOpener, setPendingOpener] = useState(null)
   const [schemes, setSchemes] = useState(() => getSchemesFromCache() || [])
   const [messages, setMessages] = useState([Welcome()])
   const [input, setInput] = useState('')
@@ -134,13 +139,29 @@ export default function App() {
   const [error, setError] = useState(null)
   const [showLinks, setShowLinks] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
+  const [showBrowseSchemes, setShowBrowseSchemes] = useState(false)
+  const [schemeSearch, setSchemeSearch] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState('en-IN')
   const [speakEnabled, setSpeakEnabled] = useState(false)
   const listenControllerRef = useRef(null)
   const [isOnline, setIsOnline] = useState(isCurrentlyOnline())
   const [usingCachedSchemes, setUsingCachedSchemes] = useState(false)
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [toast, setToast] = useState(null)
+  const toastTimerRef = useRef(null)
   const bottomRef = useRef(null)
+
+  function showToast(message) {
+    setToast(message)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 2200)
+  }
+
+  function handleStart(opener) {
+    setStarted(true)
+    if (opener) setPendingOpener(opener)
+  }
 
   useEffect(() => {
     fetchAllSchemes().then(({ schemes, fromCache }) => {
@@ -188,6 +209,18 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading, isOnline])
 
+  // If the user started the chat from a landing-page category card (or a
+  // quick chip), fire off that opener as their first message as soon as
+  // the chat is up and the scheme list has loaded.
+  useEffect(() => {
+    if (started && pendingOpener && !loadingSchemes) {
+      const opener = pendingOpener
+      setPendingOpener(null)
+      handleSend(opener)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, pendingOpener, loadingSchemes])
+
   async function handleSend(overrideText) {
     const textToSend = (overrideText ?? input).trim()
     if (!textToSend || loading) return
@@ -230,7 +263,19 @@ export default function App() {
     setMessages([Welcome()])
     setError(null)
     setShowLinks(false)
+    setIsMobileNavOpen(false)
     stopSpeaking()
+  }
+
+  function handleComingSoon(label) {
+    showToast(`${label} is coming soon`)
+    setIsMobileNavOpen(false)
+  }
+
+  function handleAskAboutScheme(scheme) {
+    setShowBrowseSchemes(false)
+    setIsMobileNavOpen(false)
+    handleSend(`Tell me more about ${scheme.scheme_name} and whether I might be eligible.`)
   }
 
   function handleMicClick() {
@@ -253,6 +298,7 @@ export default function App() {
       onEnd: () => {
         setIsListening(false)
       },
+      },
       onError: (err) => {
         setIsListening(false)
         if (err !== 'no-speech' && err !== 'aborted') {
@@ -267,168 +313,554 @@ export default function App() {
   }, [])
 
   if (!started) {
-    return <LandingPage onStart={() => setStarted(true)} />
+    return <LandingPage onStart={handleStart} />
   }
 
+  const filteredSchemes = schemes.filter((s) =>
+    s.scheme_name.toLowerCase().includes(schemeSearch.toLowerCase())
+  )
+  const popularSchemes = schemes.slice(0, 5)
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
-          <Logo size={32} />
+    <div className="ym-shell">
+      {isMobileNavOpen && <div className="ym-shell-scrim" onClick={() => setIsMobileNavOpen(false)} />}
+
+      {/* Left sidebar: brand + primary navigation */}
+      <aside className={`ym-shell-left${isMobileNavOpen ? ' ym-open' : ''}`} style={styles.sidebarLeft}>
+        <div style={styles.sidebarBrand}>
+          <Logo size={30} />
           <div>
-            <h1 style={styles.title}>Yojana Mitra</h1>
-            <p style={styles.subtitle}>Your Government Scheme Assistant</p>
+            <div style={styles.sidebarBrandTitle}>Yojana Mitra</div>
+            <div style={styles.sidebarBrandSub}>Your Scheme Companion</div>
           </div>
+          <button className="ym-mobile-close-btn" style={styles.mobileCloseBtn} onClick={() => setIsMobileNavOpen(false)} aria-label="Close menu">
+            <CloseIcon size={16} color="var(--color-cream)" />
+          </button>
         </div>
-        <div style={styles.headerActions}>
+
+        <button className="ym-nav-item ym-nav-active" onClick={handleClearChat} style={{ marginTop: '6px' }}>
+          <PlusChatIcon size={16} /> New Chat
+        </button>
+
+        <div style={styles.sidebarSectionLabel}>Browse</div>
+        <button className="ym-nav-item" onClick={() => { setShowBrowseSchemes(true); setIsMobileNavOpen(false) }}>
+          <GridIcon size={16} /> Schemes
+        </button>
+        <button className="ym-nav-item" onClick={() => { setShowApplyForm(true); setIsMobileNavOpen(false) }}>
+          <DocumentIcon size={16} /> My Applications
+        </button>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Saved Schemes')}>
+          <BookmarkIcon size={16} /> Saved Schemes
+        </button>
+
+        <div style={styles.sidebarSectionLabel}>Account</div>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Profile')}>
+          <UserCircleIcon size={16} /> Profile
+        </button>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Settings')}>
+          <SettingsGearIcon size={16} /> Settings
+        </button>
+        <button className="ym-nav-item" onClick={() => { setShowLinks((s) => !s); setIsMobileNavOpen(false) }}>
+          <GlobeIcon size={16} /> Official Sites
+        </button>
+
+        <div style={styles.sidebarHelp}>
+          <div style={styles.sidebarHelpAvatar}><Logo size={20} /></div>
+          <div style={styles.sidebarHelpTitle}>Need help?</div>
+          <div style={styles.sidebarHelpText}>Use voice, type, or ask in your preferred language.</div>
           {isVoiceInputSupported && (
             <button
-              className="ym-icon-btn"
-              onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
-              title="Voice input language"
+              className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-nav-item'}
+              style={styles.sidebarVoiceBtn}
+              onClick={() => { handleMicClick(); setIsMobileNavOpen(false) }}
+              disabled={loadingSchemes || !isOnline}
             >
-              {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
+              <MicIcon size={14} color={isListening ? 'white' : 'var(--color-cream)'} /> {isListening ? 'Listening...' : 'Try Voice'}
             </button>
           )}
-          {isVoiceOutputSupported && (
-            <button
-              className="ym-icon-btn"
-              onClick={() => {
-                if (speakEnabled) stopSpeaking()
-                setSpeakEnabled((s) => !s)
-              }}
-              title="Read replies aloud"
-            >
-              {speakEnabled ? <SpeakerOnIcon size={15} /> : <SpeakerOffIcon size={15} />}
-              {speakEnabled ? ' On' : ' Off'}
+        </div>
+      </aside>
+
+      {/* Main chat column */}
+      <div style={styles.mainCol}>
+        <header style={styles.header}>
+          <div style={styles.headerLeft}>
+            <button className="ym-mobile-menu-btn" style={styles.mobileMenuBtn} onClick={() => setIsMobileNavOpen(true)} aria-label="Open menu">
+              <MenuIcon size={19} color="var(--color-cream)" />
             </button>
-          )}
-          <button className="ym-icon-btn" onClick={() => setShowApplyForm(true)}>
-            Apply for Scheme
-          </button>
-          <button className="ym-icon-btn" onClick={() => setShowLinks((s) => !s)}>
-            Official Sites
-          </button>
-          <button className="ym-icon-btn" onClick={handleClearChat}>
-            Clear Chat
-          </button>
-        </div>
-      </header>
-
-      {!isOnline && (
-        <div style={styles.offlineBanner}>
-          You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
-          {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
-        </div>
-      )}
-
-      {showLinks && (
-        <div style={styles.linksBar}>
-          {QUICK_LINKS.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ym-link-pill"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      )}
-
-      <div style={styles.chatArea}>
-        {loadingSchemes ? (
-          <p style={styles.systemNote}>Loading scheme database...</p>
-        ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              className="ym-bubble"
-              style={{
-                ...styles.bubble,
-                ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
-              }}
-            >
-              {msg.role === 'assistant' ? <MessageContent text={msg.text} /> : msg.text}
+            <div>
+              <h1 style={styles.title}>Yojana Mitra</h1>
+              <p style={styles.subtitle}>
+                <span style={{ ...styles.statusDot, background: isOnline ? '#3fbf6b' : '#c97f1e' }} />
+                {isOnline ? 'Online' : 'Offline'}
+              </p>
             </div>
-          ))
-        )}
-        {loading && (
-          <div style={{ ...styles.bubble, ...styles.assistantBubble }} className="ym-bubble">
-            <span className="ym-typing">
-              <span></span><span></span><span></span>
-            </span>
+          </div>
+          <div style={styles.headerActions}>
+            {isVoiceInputSupported && (
+              <button
+                className="ym-icon-btn"
+                onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
+                title="Voice input language"
+              >
+                {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
+              </button>
+            )}
+            {isVoiceOutputSupported && (
+              <button
+                className="ym-icon-btn"
+                onClick={() => {
+                  if (speakEnabled) stopSpeaking()
+                  setSpeakEnabled((s) => !s)
+                }}
+                title="Read replies aloud"
+              >
+                {speakEnabled ? <SpeakerOnIcon size={15} /> : <SpeakerOffIcon size={15} />}
+                {speakEnabled ? ' On' : ' Off'}
+              </button>
+            )}
+          </div>
+        </header>
+
+        {!isOnline && (
+          <div style={styles.offlineBanner}>
+            You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
+            {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
           </div>
         )}
-        {error && <div style={styles.errorNote}>⚠️ {error}</div>}
-        {!isOnline && schemes.length > 0 && (
-          <div style={styles.offlineSchemeList}>
-            <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
-            {schemes.map((s) => (
-              <div key={s.id} style={styles.offlineSchemeItem}>
-                <strong>{s.scheme_name}</strong>
-                <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
-                <div>{s.description}</div>
-              </div>
+
+        {showLinks && (
+          <div style={styles.linksBar}>
+            {QUICK_LINKS.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ym-link-pill"
+              >
+                {link.label}
+              </a>
             ))}
           </div>
         )}
-        <div ref={bottomRef} />
+
+        <div style={styles.chatArea}>
+          {loadingSchemes ? (
+            <p style={styles.systemNote}>Loading scheme database...</p>
+          ) : (
+            messages.map((msg, i) => (
+              <div
+                key={i}
+                className="ym-bubble"
+                style={{
+                  ...styles.bubble,
+                  ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
+                }}
+              >
+                {msg.role === 'assistant' ? <MessageContent text={msg.text} /> : msg.text}
+              </div>
+            ))
+          )}
+          {loading && (
+            <div style={{ ...styles.bubble, ...styles.assistantBubble }} className="ym-bubble">
+              <span className="ym-typing">
+                <span></span><span></span><span></span>
+              </span>
+            </div>
+          )}
+          {error && <div style={styles.errorNote}>⚠️ {error}</div>}
+          {!isOnline && schemes.length > 0 && (
+            <div style={styles.offlineSchemeList}>
+              <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
+              {schemes.map((s) => (
+                <div key={s.id} style={styles.offlineSchemeItem}>
+                  <strong>{s.scheme_name}</strong>
+                  <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
+                  <div>{s.description}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        <div style={styles.inputArea}>
+          <button className="ym-icon-btn" style={styles.applyPillBtn} onClick={() => setShowApplyForm(true)} title="Apply for a scheme">
+            <DocumentIcon size={15} color="var(--color-forest)" />
+          </button>
+          {isVoiceInputSupported && (
+            <button
+              className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
+              onClick={handleMicClick}
+              disabled={loadingSchemes || !isOnline}
+              title={isListening ? 'Stop listening' : 'Speak your message'}
+              type="button"
+            >
+              {isListening ? <StopIcon size={17} color="white" /> : <MicIcon size={18} />}
+            </button>
+          )}
+          <textarea
+            style={styles.textInput}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
+            rows={2}
+            disabled={loadingSchemes || !isOnline}
+          />
+          <button
+            className="ym-send-btn"
+            style={styles.sendButton}
+            onClick={() => handleSend()}
+            disabled={loading || loadingSchemes || !input.trim() || !isOnline}
+            aria-label="Send"
+          >
+            <SendIcon size={16} color="var(--color-cream)" />
+          </button>
+        </div>
       </div>
 
-      <div style={styles.inputArea}>
-        {isVoiceInputSupported && (
-          <button
-            className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
-            onClick={handleMicClick}
-            disabled={loadingSchemes || !isOnline}
-            title={isListening ? 'Stop listening' : 'Speak your message'}
-            type="button"
-          >
-            {isListening ? <StopIcon size={17} color="white" /> : <MicIcon size={18} />}
-          </button>
-        )}
-        <textarea
-          style={styles.textInput}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
-          rows={2}
-          disabled={loadingSchemes || !isOnline}
-        />
-        <button
-          className="ym-send-btn"
-          style={styles.sendButton}
-          onClick={() => handleSend()}
-          disabled={loading || loadingSchemes || !input.trim() || !isOnline}
-        >
-          Send
-        </button>
-      </div>
+      {/* Right sidebar: popular schemes drawn from live data */}
+      <aside className="ym-shell-right" style={styles.sidebarRight}>
+        <div style={styles.rightCard}>
+          <div style={styles.rightCardHeader}>
+            <span>Popular Schemes</span>
+            <button style={styles.viewAllBtn} onClick={() => setShowBrowseSchemes(true)}>View All</button>
+          </div>
+          {loadingSchemes ? (
+            <p style={styles.systemNote}>Loading...</p>
+          ) : popularSchemes.length === 0 ? (
+            <p style={{ fontSize: '12.5px', color: 'var(--color-charcoal-soft)' }}>No schemes loaded yet.</p>
+          ) : (
+            popularSchemes.map((s) => (
+              <button key={s.id} className="ym-scheme-row" onClick={() => handleAskAboutScheme(s)}>
+                <span style={styles.schemeRowDot} />
+                <span>
+                  <span style={styles.schemeRowName}>{s.scheme_name}</span>
+                  <span style={styles.schemeRowCategory}>{s.category}</span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        <div style={styles.promoCard}>
+          <strong style={{ fontSize: '13.5px' }}>Many schemes. One platform.</strong>
+          <p style={{ fontSize: '12px', margin: '6px 0 0', opacity: 0.9 }}>Yojana Mitra — always with you.</p>
+        </div>
+      </aside>
 
       {showApplyForm && (
         <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} onRetryLoadSchemes={retryLoadSchemes} />
       )}
+
+      {showBrowseSchemes && (
+        <div style={styles.overlay} onClick={() => setShowBrowseSchemes(false)}>
+          <div style={styles.browseModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>All Schemes</h2>
+              <PlusChatIcon size={16} /> New Chat
+        </button>
+
+        <div style={styles.sidebarSectionLabel}>Browse</div>
+        <button className="ym-nav-item" onClick={() => { setShowBrowseSchemes(true); setIsMobileNavOpen(false) }}>
+          <GridIcon size={16} /> Schemes
+        </button>
+        <button className="ym-nav-item" onClick={() => { setShowApplyForm(true); setIsMobileNavOpen(false) }}>
+          <DocumentIcon size={16} /> My Applications
+        </button>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Saved Schemes')}>
+          <BookmarkIcon size={16} /> Saved Schemes
+        </button>
+
+        <div style={styles.sidebarSectionLabel}>Account</div>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Profile')}>
+          <UserCircleIcon size={16} /> Profile
+        </button>
+        <button className="ym-nav-item" onClick={() => handleComingSoon('Settings')}>
+          <SettingsGearIcon size={16} /> Settings
+        </button>
+        <button className="ym-nav-item" onClick={() => { setShowLinks((s) => !s); setIsMobileNavOpen(false) }}>
+          <GlobeIcon size={16} /> Official Sites
+        </button>
+
+        <div style={styles.sidebarHelp}>
+          <div style={styles.sidebarHelpAvatar}><Logo size={20} /></div>
+          <div style={styles.sidebarHelpTitle}>Need help?</div>
+          <div style={styles.sidebarHelpText}>Use voice, type, or ask in your preferred language.</div>
+          {isVoiceInputSupported && (
+            <button
+              className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-nav-item'}
+              style={styles.sidebarVoiceBtn}
+              onClick={() => { handleMicClick(); setIsMobileNavOpen(false) }}
+              disabled={loadingSchemes || !isOnline}
+            >
+              <MicIcon size={14} color={isListening ? 'white' : 'var(--color-cream)'} /> {isListening ? 'Listening...' : 'Try Voice'}
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main chat column */}
+      <div style={styles.mainCol}>
+        <header style={styles.header}>
+          <div style={styles.headerLeft}>
+            <button className="ym-mobile-menu-btn" style={styles.mobileMenuBtn} onClick={() => setIsMobileNavOpen(true)} aria-label="Open menu">
+              <MenuIcon size={19} color="var(--color-cream)" />
+            </button>
+            <div>
+              <h1 style={styles.title}>Yojana Mitra</h1>
+              <p style={styles.subtitle}>
+                <span style={{ ...styles.statusDot, background: isOnline ? '#3fbf6b' : '#c97f1e' }} />
+                {isOnline ? 'Online' : 'Offline'}
+              </p>
+            </div>
+          </div>
+          <div style={styles.headerActions}>
+            {isVoiceInputSupported && (
+              <button
+                className="ym-icon-btn"
+                onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
+                title="Voice input language"
+              >
+                {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
+              </button>
+            )}
+            {isVoiceOutputSupported && (
+              <button
+                className="ym-icon-btn"
+                onClick={() => {
+                  if (speakEnabled) stopSpeaking()
+                  setSpeakEnabled((s) => !s)
+                }}
+                title="Read replies aloud"
+              >
+                {speakEnabled ? <SpeakerOnIcon size={15} /> : <SpeakerOffIcon size={15} />}
+                {speakEnabled ? ' On' : ' Off'}
+              </button>
+            )}
+          </div>
+        </header>
+
+        {!isOnline && (
+          <div style={styles.offlineBanner}>
+            You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
+            {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
+          </div>
+        )}
+
+        {showLinks && (
+          <div style={styles.linksBar}>
+            {QUICK_LINKS.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ym-link-pill"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div style={styles.chatArea}>
+          {loadingSchemes ? (
+            <p style={styles.systemNote}>Loading scheme database...</p>
+          ) : (
+            messages.map((msg, i) => (
+              <div
+                key={i}
+                className="ym-bubble"
+                style={{
+                  ...styles.bubble,
+                  ...(msg.role === 'user' ? styles.userBubble : styles.assistantBubble),
+                }}
+              >
+                {msg.role === 'assistant' ? <MessageContent text={msg.text} /> : msg.text}
+              </div>
+            ))
+          )}
+          {loading && (
+            <div style={{ ...styles.bubble, ...styles.assistantBubble }} className="ym-bubble">
+              <span className="ym-typing">
+                <span></span><span></span><span></span>
+              </span>
+            </div>
+          )}
+          {error && <div style={styles.errorNote}>⚠️ {error}</div>}
+          {!isOnline && schemes.length > 0 && (
+            <div style={styles.offlineSchemeList}>
+              <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
+              {schemes.map((s) => (
+                <div key={s.id} style={styles.offlineSchemeItem}>
+                  <strong>{s.scheme_name}</strong>
+                  <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
+                  <div>{s.description}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        <div style={styles.inputArea}>
+          <button className="ym-icon-btn" style={styles.applyPillBtn} onClick={() => setShowApplyForm(true)} title="Apply for a scheme">
+            <DocumentIcon size={15} color="var(--color-forest)" />
+          </button>
+          {isVoiceInputSupported && (
+            <button
+              className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
+              onClick={handleMicClick}
+              disabled={loadingSchemes || !isOnline}
+              title={isListening ? 'Stop listening' : 'Speak your message'}
+              type="button"
+            >
+              {isListening ? <StopIcon size={17} color="white" /> : <MicIcon size={18} />}
+            </button>
+          )}
+          <textarea
+            style={styles.textInput}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
+            rows={2}
+            disabled={loadingSchemes || !isOnline}
+          />
+          <button
+            className="ym-send-btn"
+            style={styles.sendButton}
+            onClick={() => handleSend()}
+            disabled={loading || loadingSchemes || !input.trim() || !isOnline}
+            aria-label="Send"
+          >
+            <SendIcon size={16} color="var(--color-cream)" />
+          </button>
+        </div>
+      </div>
+
+      {/* Right sidebar: popular schemes drawn from live data */}
+      <aside className="ym-shell-right" style={styles.sidebarRight}>
+        <div style={styles.rightCard}>
+          <div style={styles.rightCardHeader}>
+            <span>Popular Schemes</span>
+            <button style={styles.viewAllBtn} onClick={() => setShowBrowseSchemes(true)}>View All</button>
+          </div>
+          {loadingSchemes ? (
+            <p style={styles.systemNote}>Loading...</p>
+          ) : popularSchemes.length === 0 ? (
+            <p style={{ fontSize: '12.5px', color: 'var(--color-charcoal-soft)' }}>No schemes loaded yet.</p>
+          ) : (
+            popularSchemes.map((s) => (
+              <button key={s.id} className="ym-scheme-row" onClick={() => handleAskAboutScheme(s)}>
+                <span style={styles.schemeRowDot} />
+                <span>
+                  <span style={styles.schemeRowName}>{s.scheme_name}</span>
+                  <span style={styles.schemeRowCategory}>{s.category}</span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        <div style={styles.promoCard}>
+          <strong style={{ fontSize: '13.5px' }}>Many schemes. One platform.</strong>
+          <p style={{ fontSize: '12px', margin: '6px 0 0', opacity: 0.9 }}>Yojana Mitra — always with you.</p>
+        </div>
+      </aside>
+
+      {showApplyForm && (
+        <ApplicationForm schemes={schemes} onClose={() => setShowApplyForm(false)} onRetryLoadSchemes={retryLoadSchemes} />
+      )}
+
+      {showBrowseSchemes && (
+        <div style={styles.overlay} onClick={() => setShowBrowseSchemes(false)}>
+          <div style={styles.browseModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>All Schemes</h2>
+              <button style={styles.browseCloseBtn} onClick={() => setShowBrowseSchemes(false)}>
+                <CloseIcon size={17} />
+              </button>
+            </div>
+            <div style={styles.browseSearchRow}>
+              <SearchIcon size={15} color="var(--color-charcoal-soft)" />
+              <input
+                style={styles.browseSearchInput}
+                placeholder="Search schemes..."
+                value={schemeSearch}
+                onChange={(e) => setSchemeSearch(e.target.value)}
+              />
+            </div>
+            <div style={styles.browseList}>
+              {filteredSchemes.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--color-charcoal-soft)', padding: '12px 0' }}>
+                  {schemes.length === 0 ? 'Scheme list is still loading or unavailable.' : 'No schemes match your search.'}
+                </p>
+              ) : (
+                filteredSchemes.map((s) => (
+                  <button key={s.id} className="ym-scheme-row" style={styles.browseRow} onClick={() => handleAskAboutScheme(s)}>
+                    <span style={styles.schemeRowDot} />
+                    <span>
+                      <span style={styles.schemeRowName}>{s.scheme_name}</span>
+                      <span style={styles.schemeRowCategory}>{s.category} · {s.level}</span>
+                      {s.benefits && <span style={styles.browseRowBenefit}>{s.benefits}</span>}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="ym-toast">{toast}</div>}
     </div>
   )
 }
-
-const styles = {
-  container: {
+      const styles = {
+  sidebarLeft: {
+    background: 'var(--color-forest)',
+    color: 'var(--color-cream)',
+    padding: '18px 14px',
     display: 'flex',
     flexDirection: 'column',
-    height: 'calc(100vh - 32px)',
-    maxWidth: '640px',
-    margin: '16px auto',
-    fontFamily: 'var(--font-body)',
-    background: 'var(--color-cream)',
-    borderRadius: '18px',
-    overflow: 'hidden',
-    boxShadow: '0 12px 40px rgba(20, 83, 45, 0.14)',
+    gap: '3px',
+    overflowY: 'auto',
   },
+  sidebarBrand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '9px',
+    marginBottom: '14px',
+    position: 'relative',
+  },
+  sidebarBrandTitle: { fontSize: '15px', fontWeight: 700, lineHeight: 1.2 },
+  sidebarBrandSub: { fontSize: '10.5px', opacity: 0.75 },
+  mobileCloseBtn: {
+    display: 'none', marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer',
+  },
+  sidebarSectionLabel: {
+    fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.55,
+    margin: '16px 12px 4px',
+  },
+  sidebarHelp: {
+    marginTop: 'auto', background: 'rgba(250,247,240,0.08)', borderRadius: '12px',
+    padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px',
+  },
+  sidebarHelpAvatar: { width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(250,247,240,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' },
+  sidebarHelpTitle: { fontSize: '13px', fontWeight: 700 },
+  sidebarHelpText: { fontSize: '11.5px', opacity: 0.8, lineHeight: 1.4, marginBottom: '6px' },
+  sidebarVoiceBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: '6px', border: 'none', borderRadius: '999px',
+    padding: '7px 14px', background: 'var(--color-forest-light)', color: 'var(--color-cream)',
+    fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  mainCol: { display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', background: 'var(--color-cream)' },
+  mobileMenuBtn: {
+    display: 'none', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', marginRight: '2px',
+  },
+  statusDot: { display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', marginRight: '5px' },
   header: {
     background: 'var(--color-forest)',
     color: 'var(--color-cream)',
@@ -442,14 +874,51 @@ const styles = {
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '6px',
   },
-  title: { margin: 0, fontSize: '19px', fontFamily: 'var(--font-body)', fontWeight: 700 },
-  subtitle: { margin: '2px 0 0', fontSize: '12px', opacity: 0.85 },
+  title: { margin: 0, fontSize: '17px', fontFamily: 'var(--font-body)', fontWeight: 700 },
+  subtitle: { margin: '2px 0 0', fontSize: '11.5px', opacity: 0.85, display: 'flex', alignItems: 'center' },
   headerActions: {
     display: 'flex',
     gap: '8px',
   },
+  applyPillBtn: {
+    width: '38px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: '12px', border: '1px solid rgba(20,83,45,0.2)', background: 'var(--color-sage)', color: 'var(--color-forest)',
+  },
+  sidebarRight: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', borderLeft: '1px solid rgba(20,83,45,0.1)' },
+  rightCard: { background: '#ffffff', borderRadius: '14px', padding: '12px', border: '1px solid rgba(20,83,45,0.1)' },
+  rightCardHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: 700,
+    color: 'var(--color-forest)', marginBottom: '6px', padding: '2px 6px',
+  },
+  viewAllBtn: { background: 'transparent', border: 'none', color: 'var(--color-marigold-dark)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  schemeRowDot: { width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-marigold)', marginTop: '6px', flexShrink: 0 },
+  schemeRowName: { display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--color-charcoal)', lineHeight: 1.35 },
+  schemeRowCategory: { display: 'block', fontSize: '11px', color: 'var(--color-charcoal-soft)', textTransform: 'capitalize', marginTop: '1px' },
+  promoCard: {
+    background: 'linear-gradient(135deg, var(--color-forest) 0%, var(--color-forest-light) 100%)',
+    color: 'var(--color-cream)', borderRadius: '14px', padding: '16px',
+  },
+  overlay: {
+    position: 'fixed', inset: 0, background: 'rgba(20,83,45,0.45)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 70,
+  },
+  browseModal: {
+    background: 'var(--color-cream)', borderRadius: '16px', padding: '18px', maxWidth: '480px', width: '100%',
+    maxHeight: '82vh', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body)',
+  },
+  browseHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
+  browseTitle: { margin: 0, fontSize: '18px', color: 'var(--color-forest)', fontWeight: 700 },
+  browseCloseBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-charcoal-soft)' },
+  browseSearchRow: {
+    display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid rgba(20,83,45,0.2)',
+    borderRadius: '10px', padding: '9px 12px', marginBottom: '10px',
+  },
+  browseSearchInput: { border: 'none', outline: 'none', flex: 1, fontSize: '13.5px', fontFamily: 'inherit', background: 'transparent' },
+  browseList: { overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' },
+  browseRow: { alignItems: 'flex-start', background: '#fff', marginBottom: '4px', border: '1px solid rgba(20,83,45,0.08)' },
+  browseRowBenefit: { display: 'block', fontSize: '11.5px', color: 'var(--color-charcoal-soft)', marginTop: '3px', lineHeight: 1.4 },
   linksBar: {
     display: 'flex',
     flexWrap: 'wrap',
