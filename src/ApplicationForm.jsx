@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { extractDocumentFields } from './lib/gemini'
+import { saveDraft, loadDraft, clearDraft } from './lib/applicationDraft'
+import { isCurrentlyOnline, subscribeToConnectionStatus } from './lib/offline'
 
 const FIELD_ORDER = [
   'Full Name', 'Date of Birth', 'Gender', 'Aadhaar Number', 'Mobile Number',
@@ -30,6 +32,9 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
   const [notes, setNotes] = useState(null)
   const [error, setError] = useState(null)
   const [consentGiven, setConsentGiven] = useState(false)
+  const [isOnline, setIsOnline] = useState(isCurrentlyOnline())
+  const [offlinePending, setOfflinePending] = useState(false)
+  const [resumedNotice, setResumedNotice] = useState(false)
 
   const selectedScheme = schemes.find((s) => s.id === selectedSchemeId)
 
@@ -41,6 +46,38 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
     revokePreviews()
     onClose()
   }
+
+  // On mount: restore any saved draft (from a previous session where
+  // connection dropped mid-process) so nothing the user did is lost.
+  useEffect(() => {
+    loadDraft().then((draft) => {
+      if (draft && draft.files && draft.files.length > 0) {
+        setSelectedSchemeId(draft.schemeId || schemes[0]?.id || '')
+        setFiles(draft.files)
+        setPreviews(draft.files.map((f) => URL.createObjectURL(f)))
+        setConsentGiven(true)
+        setOfflinePending(true)
+        setResumedNotice(true)
+      }
+    })
+  }, [])
+
+  // Track connection status, and automatically resume a pending offline
+  // extraction the moment the connection comes back.
+  useEffect(() => {
+    const unsubscribe = subscribeToConnectionStatus((online) => {
+      setIsOnline(online)
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    if (isOnline && offlinePending && files.length > 0 && selectedScheme) {
+      setOfflinePending(false)
+      runExtraction(files, selectedScheme)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline])
 
   useEffect(() => {
     if (!selectedSchemeId && schemes.length > 0) {
@@ -55,27 +92,45 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
     setPreviews(selected.map((f) => URL.createObjectURL(f)))
     setFields(null)
     setError(null)
+    setOfflinePending(false)
+    setResumedNotice(false)
   }
 
-  async function handleExtract() {
-    if (files.length === 0 || !selectedScheme) return
+  async function runExtraction(filesToUse, schemeToUse) {
     setExtracting(true)
     setError(null)
     try {
       const images = await Promise.all(
-        files.map(async (f) => ({ base64: await fileToBase64(f), mimeType: f.type }))
+        filesToUse.map(async (f) => ({ base64: await fileToBase64(f), mimeType: f.type }))
       )
-      const docs = Array.isArray(selectedScheme.documents_required)
-        ? selectedScheme.documents_required
-        : [selectedScheme.documents_required]
-      const result = await extractDocumentFields(images, selectedScheme.scheme_name, docs)
+      const docs = Array.isArray(schemeToUse.documents_required)
+        ? schemeToUse.documents_required
+        : [schemeToUse.documents_required]
+      const result = await extractDocumentFields(images, schemeToUse.scheme_name, docs)
       setFields(result.extracted || {})
       setNotes(result.notes || null)
+      await clearDraft()
+      setResumedNotice(false)
     } catch (err) {
       setError(err.message)
     } finally {
       setExtracting(false)
     }
+  }
+
+  async function handleExtract() {
+    if (files.length === 0 || !selectedScheme) return
+
+    if (!isCurrentlyOnline()) {
+      // No internet right now - save everything locally instead of failing,
+      // and automatically resume the moment the connection returns.
+      await saveDraft({ schemeId: selectedSchemeId, files, consentGiven: true })
+      setOfflinePending(true)
+      setError("You're offline - your scheme selection and photos are saved. I'll finish reading them automatically as soon as you're back online.")
+      return
+    }
+
+    runExtraction(files, selectedScheme)
   }
 
   function handleFieldChange(key, value) {
@@ -138,6 +193,12 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
         )}
 
         <fieldset disabled={!consentGiven} style={styles.fieldset}>
+        {resumedNotice && (
+          <p style={styles.notesText}>
+            Restored your saved documents from before - {isOnline ? 'finishing up now...' : "waiting for internet to continue."}
+          </p>
+        )}
+
         {schemes.length === 0 ? (
           <div>
             <p style={styles.consentHint}>Scheme list didn't load. This can happen after a one-time network hiccup.</p>
@@ -181,7 +242,7 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
           onClick={handleExtract}
           disabled={files.length === 0 || extracting}
         >
-          {extracting ? 'Reading documents...' : 'Extract & Fill Details'}
+          {extracting ? 'Reading documents...' : !isOnline ? 'Save for when I\'m back online' : 'Extract & Fill Details'}
         </button>
 
         {error && <p style={styles.errorText}>⚠️ {error}</p>}
