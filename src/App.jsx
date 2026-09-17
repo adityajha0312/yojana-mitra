@@ -120,7 +120,7 @@ HOW TO RESPOND:
 function Welcome() {
   return {
     role: 'assistant',
-    text: "Namaste! I'm Yojana Mitra. Tell me a bit about yourself 鈥� your occupation, age, or situation 鈥� and I'll help you find government schemes you may be eligible for.",
+    text: "Namaste! I'm Yojana Mitra. Tell me a bit about yourself — your occupation, age, or situation — and I'll help you find government schemes you may be eligible for.",
   }
 }
 
@@ -287,7 +287,7 @@ export default function App() {
               onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
               title="Voice input language"
             >
-              {voiceLang === 'en-IN' ? 'EN' : '啶灌た啶�'}
+              {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
             </button>
           )}
           {isVoiceOutputSupported && (
@@ -317,7 +317,7 @@ export default function App() {
 
       {!isOnline && (
         <div style={styles.offlineBanner}>
-          You're offline 鈥� chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
+          You're offline — chat needs internet to think through scheme matches. Browse the saved scheme list below, or reconnect to keep chatting.
           {usingCachedSchemes && ` (Showing scheme data saved from your last connection.)`}
         </div>
       )}
@@ -362,14 +362,14 @@ export default function App() {
             </span>
           </div>
         )}
-        {error && <div style={styles.errorNote}>鈿狅笍 {error}</div>}
+        {error && <div style={styles.errorNote}>⚠️ {error}</div>}
         {!isOnline && schemes.length > 0 && (
           <div style={styles.offlineSchemeList}>
             <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
             {schemes.map((s) => (
               <div key={s.id} style={styles.offlineSchemeItem}>
                 <strong>{s.scheme_name}</strong>
-                <div style={styles.offlineSchemeCategory}>{s.category} 路 {s.level}</div>
+                <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
                 <div>{s.description}</div>
               </div>
             ))}
