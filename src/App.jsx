@@ -297,7 +297,6 @@ export default function App() {
       },
       onEnd: () => {
         setIsListening(false)
-      }
       },
       onError: (err) => {
         setIsListening(false)
