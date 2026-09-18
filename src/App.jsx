@@ -384,6 +384,9 @@ export default function App() {
         <button className="ym-nav-item" onClick={() => { setShowLinks((s) => !s); setIsMobileNavOpen(false) }}>
           <GlobeIcon size={16} /> Official Sites
         </button>
+        <button className="ym-nav-item" onClick={() => { setShowApplyForm(true); setIsMobileNavOpen(false) }}>
+          <DocumentIcon size={16} /> Apply for Scheme
+        </button>
 
         <div style={styles.sidebarHelp}>
           <div style={styles.sidebarHelpAvatar}><Logo size={20} /></div>
@@ -507,9 +510,6 @@ export default function App() {
         </div>
 
         <div style={styles.inputArea}>
-          <button className="ym-icon-btn" style={styles.applyPillBtn} onClick={() => setShowApplyForm(true)} title="Apply for a scheme">
-            <DocumentIcon size={15} color="var(--color-forest)" />
-          </button>
           {isVoiceInputSupported && (
             <button
               className={isListening ? 'ym-mic-btn ym-mic-active' : 'ym-mic-btn'}
@@ -619,6 +619,7 @@ export default function App() {
     </div>
   )
 }
+
 const styles = {
   sidebarLeft: {
     background: 'var(--color-forest)',
@@ -682,10 +683,6 @@ const styles = {
   headerActions: {
     display: 'flex',
     gap: '8px',
-  },
-  applyPillBtn: {
-    width: '38px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: '12px', border: '1px solid rgba(20,83,45,0.2)', background: 'var(--color-sage)', color: 'var(--color-forest)',
   },
   sidebarRight: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', borderLeft: '1px solid rgba(20,83,45,0.1)' },
   rightCard: { background: '#ffffff', borderRadius: '14px', padding: '12px', border: '1px solid rgba(20,83,45,0.1)' },
