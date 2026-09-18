@@ -154,16 +154,6 @@ export default function LandingPage({ onStart }) {
 
         <div style={styles.heroVisual}>
           <svg viewBox="0 0 420 380" style={styles.heroSvg} aria-hidden="true">
-            <defs>
-              <radialGradient id="ymOrbGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#fff3d6" stopOpacity="1" />
-                <stop offset="35%" stopColor="var(--color-marigold)" stopOpacity="0.95" />
-                <stop offset="70%" stopColor="var(--color-marigold-dark)" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="var(--color-marigold-dark)" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <circle className="ym-glow-orb" cx="330" cy="70" r="70" fill="url(#ymOrbGlow)" />
-            <circle cx="330" cy="70" r="22" fill="#fff8e8" opacity="0.9" />
             <path d="M0 260 C 90 200, 150 230, 210 210 C 280 186, 340 220, 420 200 L420 380 L0 380 Z" fill="var(--color-forest)" opacity="0.16" />
             <path d="M0 300 C 100 250, 180 280, 260 260 C 320 246, 370 270, 420 250 L420 380 L0 380 Z" fill="var(--color-forest)" opacity="0.28" />
             <path d="M0 340 C 110 305, 200 330, 300 310 C 350 300, 390 320, 420 308 L420 380 L0 380 Z" fill="var(--color-forest)" />
