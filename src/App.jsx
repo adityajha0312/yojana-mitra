@@ -21,10 +21,13 @@ const QUICK_LINKS = [
 ]
 
 function renderInline(text, keyPrefix) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={`${keyPrefix}-${i}`}>{part.slice(2, -2)}</strong>
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <em key={`${keyPrefix}-${i}`}>{part.slice(1, -1)}</em>
     }
     return <span key={`${keyPrefix}-${i}`}>{part}</span>
   })
@@ -52,12 +55,31 @@ function MessageContent({ text }) {
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim()
-    if (/^[*\-]\s+/.test(trimmed) && !/^\*\*/.test(trimmed)) {
+    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(trimmed)
+    if (headingMatch) {
+      flushList(idx)
+      const level = headingMatch[1].length
+      blocks.push(
+        <div
+          key={idx}
+          style={{
+            fontWeight: 700,
+            color: 'var(--color-forest)',
+            fontSize: level <= 2 ? '15.5px' : '14.5px',
+            margin: '10px 0 4px',
+          }}
+        >
+          {renderInline(headingMatch[2], `h-${idx}`)}
+        </div>
+      )
+    } else if (/^[*\-]\s+/.test(trimmed) && !/^\*\*/.test(trimmed)) {
       currentList.push(trimmed)
     } else {
       flushList(idx)
       if (trimmed === '') {
         blocks.push(<div key={idx} style={{ height: '6px' }} />)
+      } else if (trimmed === '--' || trimmed === '---' || trimmed === '***') {
+        blocks.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid rgba(20,83,45,0.12)', margin: '8px 0' }} />)
       } else {
         blocks.push(<div key={idx}>{renderInline(line, `p-${idx}`)}</div>)
       }
