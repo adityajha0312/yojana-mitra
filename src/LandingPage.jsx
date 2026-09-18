@@ -2,11 +2,25 @@ import { useState } from 'react'
 import Logo from './Logo'
 import { ArrowRightIcon, GlobeIcon, HelpCircleIcon } from './Icons'
 
+const POPULAR_SCHEMES = [
+  { name: 'PM-KISAN', blurb: '₹6,000/year direct income support for farmers', color: 'var(--color-forest)' },
+  { name: 'Ayushman Bharat', blurb: 'Free health cover up to ₹5 lakh/family/year', color: 'var(--color-rose)' },
+  { name: 'PM Awas Yojana', blurb: 'Assistance for building a pucca house', color: 'var(--color-marigold-dark)' },
+  { name: 'National Scholarship Portal', blurb: 'Scholarships across school & higher education', color: 'var(--color-teal)' },
+  { name: 'Ujjwala Yojana', blurb: 'Free LPG connections for BPL households', color: 'var(--color-plum)' },
+  { name: 'Atal Pension Yojana', blurb: 'Guaranteed monthly pension after age 60', color: 'var(--color-sky)' },
+]
+
+function scrollToSection(id) {
+  const el = document.getElementById(id)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 const NAV_LINKS = [
-  { label: 'Home', href: '#top' },
-  { label: 'Schemes', href: '#categories' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'About', href: '#about' },
+  { label: 'Home', id: 'top' },
+  { label: 'Schemes', id: 'categories' },
+  { label: 'How It Works', id: 'how-it-works' },
+  { label: 'About', id: 'about' },
 ]
 
 const CATEGORIES = [
@@ -90,13 +104,20 @@ export default function LandingPage({ onStart }) {
         </div>
         <div style={styles.navLinks}>
           {NAV_LINKS.map((l) => (
-            <a key={l.label} href={l.href} style={styles.navLink}>{l.label}</a>
+            <a
+              key={l.label}
+              href={`#${l.id}`}
+              style={styles.navLink}
+              onClick={(e) => { e.preventDefault(); scrollToSection(l.id) }}
+            >
+              {l.label}
+            </a>
           ))}
         </div>
         <div style={styles.navActions}>
           <span style={styles.langPill}><GlobeIcon size={13} /> English</span>
-          <button className="ym-cta" style={styles.startNowBtn} onClick={() => onStart()}>
-            Start Now <ArrowRightIcon size={14} color="var(--color-cream)" />
+          <button className="ym-cta" style={styles.startNowBtn} onClick={() => scrollToSection('popular')}>
+            Popular Schemes <ArrowRightIcon size={14} color="var(--color-cream)" />
           </button>
         </div>
       </nav>
@@ -116,7 +137,7 @@ export default function LandingPage({ onStart }) {
             <button className="ym-cta" style={styles.primaryCta} onClick={() => onStart()}>
               Find My Schemes <ArrowRightIcon size={15} color="var(--color-cream)" />
             </button>
-            <a href="#how-it-works" style={styles.secondaryCta}>How it works</a>
+            <a href="#how-it-works" style={styles.secondaryCta} onClick={(e) => { e.preventDefault(); scrollToSection('how-it-works') }}>How it works</a>
           </div>
           <div style={styles.featureRow}>
             {FEATURES.map((f) => (
@@ -133,7 +154,16 @@ export default function LandingPage({ onStart }) {
 
         <div style={styles.heroVisual}>
           <svg viewBox="0 0 420 380" style={styles.heroSvg} aria-hidden="true">
-            <circle cx="330" cy="70" r="46" fill="var(--color-marigold)" opacity="0.85" />
+            <defs>
+              <radialGradient id="ymOrbGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#fff3d6" stopOpacity="1" />
+                <stop offset="35%" stopColor="var(--color-marigold)" stopOpacity="0.95" />
+                <stop offset="70%" stopColor="var(--color-marigold-dark)" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="var(--color-marigold-dark)" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle className="ym-glow-orb" cx="330" cy="70" r="70" fill="url(#ymOrbGlow)" />
+            <circle cx="330" cy="70" r="22" fill="#fff8e8" opacity="0.9" />
             <path d="M0 260 C 90 200, 150 230, 210 210 C 280 186, 340 220, 420 200 L420 380 L0 380 Z" fill="var(--color-forest)" opacity="0.16" />
             <path d="M0 300 C 100 250, 180 280, 260 260 C 320 246, 370 270, 420 250 L420 380 L0 380 Z" fill="var(--color-forest)" opacity="0.28" />
             <path d="M0 340 C 110 305, 200 330, 300 310 C 350 300, 390 320, 420 308 L420 380 L0 380 Z" fill="var(--color-forest)" />
@@ -162,6 +192,28 @@ export default function LandingPage({ onStart }) {
           </div>
         </div>
       </main>
+
+      <section id="popular" style={styles.popularSection}>
+        <h2 style={styles.sectionTitle}>Popular schemes right now</h2>
+        <p style={styles.sectionSubtitle}>A few widely-used schemes to get you started — tap one to ask about it directly.</p>
+        <div style={styles.popularGrid}>
+          {POPULAR_SCHEMES.map((s) => (
+            <button
+              key={s.name}
+              style={styles.popularCard}
+              className="ym-category-card"
+              onClick={() => onStart(`Tell me about ${s.name} and whether I might be eligible.`)}
+            >
+              <span style={{ ...styles.popularDot, background: s.color }} />
+              <span style={styles.popularTextWrap}>
+                <span style={styles.categoryLabel}>{s.name}</span>
+                <span style={styles.categorySub}>{s.blurb}</span>
+              </span>
+              <ArrowRightIcon size={15} color="var(--color-charcoal-soft)" />
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section id="categories" style={styles.categorySection}>
         <div style={styles.categoryHeadRow}>
@@ -205,7 +257,6 @@ export default function LandingPage({ onStart }) {
           ))}
         </div>
       </section>
-
       <footer id="about" style={styles.footer}>
         <div style={styles.footerRow}>
           <div style={styles.footerBrand}>
@@ -335,6 +386,15 @@ const styles = {
   categoryHeadRow: { marginBottom: '20px' },
   sectionTitle: { fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3vw, 28px)', color: 'var(--color-forest)', margin: '0 0 6px', fontWeight: 600 },
   sectionSubtitle: { fontSize: '14px', color: 'var(--color-charcoal-soft)', margin: 0 },
+  popularSection: { padding: '10px clamp(20px, 5vw, 48px) 36px' },
+  popularGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginTop: '18px' },
+  popularCard: {
+    display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '14px',
+    border: '1px solid rgba(20,83,45,0.12)', background: '#ffffff', cursor: 'pointer',
+    fontFamily: 'inherit', textAlign: 'left', transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+  },
+  popularDot: { width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0 },
+  popularTextWrap: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
   categoryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '14px' },
   categoryCard: {
     display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderRadius: '14px',
