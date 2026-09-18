@@ -17,7 +17,12 @@ const QUICK_LINKS = [
   { label: 'Ayushman Bharat', url: 'https://beneficiary.nha.gov.in' },
   { label: 'MP Scholarship Portal', url: 'https://hescholarship.mp.gov.in' },
   { label: 'MP Social Security', url: 'https://socialsecurity.mp.gov.in' },
-  { label: 'PM Awas Yojana', url: 'https://pmayg.dord.gov.in' },
+  { label: 'PM Awas Yojana (Gramin)', url: 'https://pmayg.nic.in' },
+  { label: 'National Scholarship Portal', url: 'https://scholarships.gov.in' },
+  { label: 'Ujjwala Yojana', url: 'https://www.pmuy.gov.in' },
+  { label: 'e-Shram (Unorganized Workers)', url: 'https://eshram.gov.in' },
+  { label: 'Jan Dhan Yojana', url: 'https://www.pmjdy.gov.in' },
+  { label: 'Common Service Centre', url: 'https://csc.gov.in' },
 ]
 
 function renderInline(text, keyPrefix) {
