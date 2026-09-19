@@ -57,6 +57,15 @@ export function isCurrentlyOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
 
+export function clearSchemesCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY)
+    localStorage.removeItem(CACHE_TIMESTAMP_KEY)
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Saved/bookmarked schemes - stored by scheme id, works fully offline since
 // it never touches the network. Kept separate from the scheme cache above
 // so a saved list survives even if the cache is later cleared or refreshed.
@@ -85,4 +94,12 @@ export function toggleSavedScheme(schemeId) {
     console.warn('Could not save scheme locally:', e)
   }
   return !isSaved
+}
+
+export function clearSavedSchemes() {
+  try {
+    localStorage.removeItem(SAVED_SCHEMES_KEY)
+  } catch (e) {
+    // ignore
+  }
 }
