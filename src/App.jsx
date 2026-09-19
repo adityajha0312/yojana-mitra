@@ -12,6 +12,16 @@ import {
 import ApplicationForm from './ApplicationForm'
 import LandingPage from './LandingPage'
 
+// Voice input/output languages. Web Speech API support for Marathi and
+// Tamil depends on the browser/OS having those voices installed, but the
+// language codes themselves are standard BCP-47 tags it understands.
+const VOICE_LANGUAGES = [
+  { code: 'en-IN', label: 'English' },
+  { code: 'hi-IN', label: 'हिन्दी' },
+  { code: 'mr-IN', label: 'मराठी' },
+  { code: 'ta-IN', label: 'தமிழ்' },
+]
+
 const QUICK_LINKS = [
   { label: 'PM-KISAN', url: 'https://pmkisan.gov.in' },
   { label: 'Ayushman Bharat', url: 'https://beneficiary.nha.gov.in' },
@@ -144,7 +154,7 @@ HOW TO RESPOND:
 2. Once you have enough details, recommend the schemes above that clearly match - explain briefly why they qualify, the benefit amount, documents needed, and how to apply, all taken from the details given above. Be confident, not hesitant - a farmer with small landholding, for example, normally qualifies for multiple schemes on this list at once.
 3. You may also mention a real Indian government scheme you know about that is NOT in the list above, if it genuinely seems relevant - but you MUST clearly label it as unverified, for example: "Note: [Scheme Name] is not in my verified database, so please confirm the current details with an official source before relying on it." Never state facts about an unlisted scheme (amounts, eligibility, documents) with the same confidence as a listed one - always flag it as unverified information, separate from your verified recommendations.
 4. Only say "I don't have a verified scheme for your situation" if you've genuinely checked the list and nothing fits - not by default. If you know of an unverified scheme per rule 3, mention it there instead; otherwise suggest the National Scholarship Portal, nearest Common Service Centre (CSC), or relevant district office.
-5. Say "Namaste" only in your first reply. Keep replies concise, warm, and easy to read on a phone. Bold only scheme names and key numbers. Match the user's language (English/Hindi/Hinglish).
+5. Say "Namaste" only in your first reply. Keep replies concise, warm, and easy to read on a phone. Bold only scheme names and key numbers. Match the user's language and script exactly - English, Hindi, Marathi, Tamil, Hinglish, or any other Indian language they use - rather than defaulting to English.
 6. Stay strictly in scope: you only help with Indian government schemes and the person's eligibility for them. If asked something unrelated (celebrities, general trivia, coding help, other countries, etc.), do NOT answer it - politely say that's outside what you help with, briefly state your actual purpose, and ask if they'd like help finding a scheme instead. Never answer the off-topic question itself, even partially.`
 }
 
@@ -203,6 +213,7 @@ export default function App() {
   const [showSavedSchemes, setShowSavedSchemes] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState('en-IN')
+  const [showLangMenu, setShowLangMenu] = useState(false)
   const [speakEnabled, setSpeakEnabled] = useState(false)
   const listenControllerRef = useRef(null)
   const [isOnline, setIsOnline] = useState(isCurrentlyOnline())
@@ -268,6 +279,15 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading, isOnline])
+
+  useEffect(() => {
+    if (!showLangMenu) return
+    function handleClickOutside() {
+      setShowLangMenu(false)
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showLangMenu])
 
   // If the user started the chat from a landing-page category card (or a
   // quick chip), fire off that opener as their first message as soon as
@@ -475,13 +495,31 @@ export default function App() {
           </div>
           <div style={styles.headerActions}>
             {isVoiceInputSupported && (
-              <button
-                className="ym-icon-btn"
-                onClick={() => setVoiceLang((l) => (l === 'en-IN' ? 'hi-IN' : 'en-IN'))}
-                title="Voice input language"
-              >
-                {voiceLang === 'en-IN' ? 'EN' : 'हिं'}
-              </button>
+              <div style={styles.langMenuWrap} onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="ym-icon-btn"
+                  onClick={() => setShowLangMenu((s) => !s)}
+                  title="Voice input/output language"
+                >
+                  <GlobeIcon size={13} /> {VOICE_LANGUAGES.find((l) => l.code === voiceLang)?.label}
+                </button>
+                {showLangMenu && (
+                  <div style={styles.langMenuDropdown}>
+                    {VOICE_LANGUAGES.map((l) => (
+                      <button
+                        key={l.code}
+                        style={{
+                          ...styles.langMenuItem,
+                          ...(l.code === voiceLang ? styles.langMenuItemActive : {}),
+                        }}
+                        onClick={() => { setVoiceLang(l.code); setShowLangMenu(false) }}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {isVoiceOutputSupported && (
               <button
@@ -831,6 +869,18 @@ const styles = {
     display: 'flex',
     gap: '8px',
   },
+  langMenuWrap: { position: 'relative' },
+  langMenuDropdown: {
+    position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: '#ffffff',
+    borderRadius: '10px', boxShadow: '0 10px 28px rgba(20,83,45,0.28)', padding: '6px',
+    display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '130px', zIndex: 50,
+  },
+  langMenuItem: {
+    textAlign: 'left', padding: '8px 10px', borderRadius: '7px', border: 'none',
+    background: 'transparent', color: 'var(--color-charcoal)', fontSize: '13.5px',
+    cursor: 'pointer', fontFamily: 'inherit',
+  },
+  langMenuItemActive: { background: 'var(--color-sage)', color: 'var(--color-forest)', fontWeight: 700 },
   sidebarRight: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', borderLeft: '1px solid rgba(20,83,45,0.1)' },
   rightCard: { background: '#ffffff', borderRadius: '14px', padding: '12px', border: '1px solid rgba(20,83,45,0.1)' },
   rightCardHeader: {
