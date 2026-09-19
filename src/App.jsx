@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
-import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache, getSavedSchemeIds, toggleSavedScheme } from './lib/offline'
+import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache, getSavedSchemeIds, toggleSavedScheme, clearSchemesCache, clearSavedSchemes } from './lib/offline'
+import { getProfile, saveProfile, clearProfile, profileToOpener } from './lib/profile'
+import { getSettings, saveSettings } from './lib/settings'
 import Logo from './Logo'
 import {
   MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon, MenuIcon, CloseIcon, PlusChatIcon,
@@ -212,7 +214,8 @@ export default function App() {
   const [savedSchemeIds, setSavedSchemeIds] = useState(() => getSavedSchemeIds())
   const [showSavedSchemes, setShowSavedSchemes] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const [voiceLang, setVoiceLang] = useState('en-IN')
+  const [settings, setSettings] = useState(() => getSettings())
+  const [voiceLang, setVoiceLang] = useState(() => getSettings().defaultVoiceLang)
   const [showLangMenu, setShowLangMenu] = useState(false)
   const [speakEnabled, setSpeakEnabled] = useState(false)
   const listenControllerRef = useRef(null)
@@ -221,6 +224,10 @@ export default function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const toastTimerRef = useRef(null)
+  const [showProfile, setShowProfile] = useState(false)
+  const [profile, setProfile] = useState(() => getProfile())
+  const [profileForm, setProfileForm] = useState(() => getProfile() || { name: '', age: '', occupation: '', location: '' })
+  const [showSettings, setShowSettings] = useState(false)
   const bottomRef = useRef(null)
 
   function showToast(message) {
@@ -347,9 +354,42 @@ export default function App() {
     stopSpeaking()
   }
 
-  function handleComingSoon(label) {
-    showToast(`${label} is coming soon`)
-    setIsMobileNavOpen(false)
+  function handleSaveProfile() {
+    saveProfile(profileForm)
+    setProfile(profileForm)
+    showToast('Profile saved')
+    setShowProfile(false)
+  }
+
+  function handleClearProfile() {
+    clearProfile()
+    setProfile(null)
+    setProfileForm({ name: '', age: '', occupation: '', location: '' })
+    showToast('Profile cleared')
+  }
+
+  function handleUseProfileInChat() {
+    const opener = profileToOpener(profile)
+    setShowProfile(false)
+    if (opener) handleSend(opener)
+  }
+
+  function handleChangeSetting(key, value) {
+    const next = { ...settings, [key]: value }
+    setSettings(next)
+    saveSettings(next)
+    if (key === 'defaultVoiceLang') setVoiceLang(value)
+  }
+
+  function handleClearCache() {
+    clearSchemesCache()
+    showToast('Offline scheme cache cleared')
+  }
+
+  function handleClearSaved() {
+    clearSavedSchemes()
+    setSavedSchemeIds([])
+    showToast('Saved schemes cleared')
   }
 
   function handleAskAboutScheme(scheme) {
@@ -416,7 +456,7 @@ export default function App() {
   const savedSchemesList = schemes.filter((s) => savedSchemeIds.includes(s.id))
 
   return (
-    <div className="ym-shell">
+    <div className={`ym-shell${settings.textSize === 'large' ? ' ym-text-large' : ''}`}>
       {isMobileNavOpen && <div className="ym-shell-scrim" onClick={() => setIsMobileNavOpen(false)} />}
 
       {/* Left sidebar: brand + primary navigation */}
@@ -448,10 +488,10 @@ export default function App() {
         </button>
 
         <div style={styles.sidebarSectionLabel}>Account</div>
-        <button className="ym-nav-item" onClick={() => handleComingSoon('Profile')}>
+        <button className="ym-nav-item" onClick={() => { setProfileForm(profile || { name: '', age: '', occupation: '', location: '' }); setShowProfile(true); setIsMobileNavOpen(false) }}>
           <UserCircleIcon size={16} /> Profile
         </button>
-        <button className="ym-nav-item" onClick={() => handleComingSoon('Settings')}>
+        <button className="ym-nav-item" onClick={() => { setShowSettings(true); setIsMobileNavOpen(false) }}>
           <SettingsGearIcon size={16} /> Settings
         </button>
         <button className="ym-nav-item" onClick={() => { setShowLinks((s) => !s); setIsMobileNavOpen(false) }}>
@@ -486,8 +526,8 @@ export default function App() {
               <MenuIcon size={19} color="var(--color-cream)" />
             </button>
             <div>
-              <h1 style={styles.title}>Yojana Mitra</h1>
-              <p style={styles.subtitle}>
+              <h1 className="ym-title-text" style={styles.title}>Yojana Mitra</h1>
+              <p className="ym-subtitle-text" style={styles.subtitle}>
                 <span style={{ ...styles.statusDot, background: isOnline ? '#3fbf6b' : '#c97f1e' }} />
                 {isOnline ? 'Online' : 'Offline'}
               </p>
@@ -615,6 +655,7 @@ export default function App() {
             </button>
           )}
           <textarea
+            className="ym-chat-input"
             style={styles.textInput}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -800,6 +841,147 @@ export default function App() {
         </div>
       )}
 
+      {showProfile && (
+        <div style={styles.overlay} onClick={() => setShowProfile(false)}>
+          <div style={styles.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>Profile</h2>
+              <button style={styles.browseCloseBtn} onClick={() => setShowProfile(false)}>
+                <CloseIcon size={17} />
+              </button>
+            </div>
+            <div style={styles.detailBody}>
+              <p style={{ fontSize: '12.5px', color: 'var(--color-charcoal-soft)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Saved only on this device. Fill this in once and reuse it to skip the intro questions in chat.
+              </p>
+              <label style={styles.formLabel}>
+                Name
+                <input
+                  style={styles.formInput}
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  placeholder="e.g. Radha Devi"
+                />
+              </label>
+              <label style={styles.formLabel}>
+                Age
+                <input
+                  style={styles.formInput}
+                  value={profileForm.age}
+                  onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}
+                  placeholder="e.g. 45"
+                  inputMode="numeric"
+                />
+              </label>
+              <label style={styles.formLabel}>
+                Occupation
+                <select
+                  style={styles.formInput}
+                  value={profileForm.occupation}
+                  onChange={(e) => setProfileForm({ ...profileForm, occupation: e.target.value })}
+                >
+                  <option value="">Select...</option>
+                  <option>Farmer</option>
+                  <option>Student</option>
+                  <option>Homemaker</option>
+                  <option>Business owner</option>
+                  <option>Daily wage worker</option>
+                  <option>Unemployed</option>
+                  <option>Senior citizen</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label style={styles.formLabel}>
+                Location (district/state)
+                <input
+                  style={styles.formInput}
+                  value={profileForm.location}
+                  onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
+                  placeholder="e.g. Bhopal, Madhya Pradesh"
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              {profile && (
+                <button style={styles.formSecondaryBtn} onClick={handleClearProfile}>Clear</button>
+              )}
+              <button className="ym-cta" style={{ ...styles.detailAskBtn, marginTop: 0 }} onClick={handleSaveProfile}>
+                Save Profile
+              </button>
+            </div>
+            {profile && isOnline && (
+              <button style={styles.formLinkBtn} onClick={handleUseProfileInChat}>
+                Use my profile in chat now
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div style={styles.overlay} onClick={() => setShowSettings(false)}>
+          <div style={styles.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>Settings</h2>
+              <button style={styles.browseCloseBtn} onClick={() => setShowSettings(false)}>
+                <CloseIcon size={17} />
+              </button>
+            </div>
+            <div style={styles.detailBody}>
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Text size</div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  {['normal', 'large'].map((size) => (
+                    <button
+                      key={size}
+                      style={{
+                        ...styles.formToggleBtn,
+                        ...(settings.textSize === size ? styles.formToggleBtnActive : {}),
+                      }}
+                      onClick={() => handleChangeSetting('textSize', size)}
+                    >
+                      {size === 'normal' ? 'Normal' : 'Large'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Default voice language</div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {VOICE_LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      style={{
+                        ...styles.formToggleBtn,
+                        ...(settings.defaultVoiceLang === l.code ? styles.formToggleBtnActive : {}),
+                      }}
+                      onClick={() => handleChangeSetting('defaultVoiceLang', l.code)}
+                    >
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Offline data</div>
+                <p style={{ fontSize: '12.5px', color: 'var(--color-charcoal-soft)', margin: '4px 0 10px' }}>
+                  {schemes.length > 0
+                    ? `${schemes.length} schemes cached${getCacheAge() !== null ? ` · updated ${getCacheAge()} min ago` : ''}`
+                    : 'No schemes cached yet'}
+                  {' · '}{savedSchemeIds.length} saved
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button style={styles.formSecondaryBtn} onClick={handleClearCache}>Clear offline cache</button>
+                  <button style={styles.formSecondaryBtn} onClick={handleClearSaved}>Clear saved schemes</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="ym-toast">{toast}</div>}
     </div>
   )
@@ -927,6 +1109,29 @@ const styles = {
     marginTop: '10px', width: '100%', textAlign: 'center', padding: '12px', borderRadius: '12px',
     border: 'none', background: 'var(--color-forest)', color: 'var(--color-cream)', fontSize: '14px',
     fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  formLabel: {
+    display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '12.5px', fontWeight: 700,
+    color: 'var(--color-forest)', marginBottom: '12px',
+  },
+  formInput: {
+    fontFamily: 'inherit', fontSize: '14px', fontWeight: 400, color: 'var(--color-charcoal)',
+    padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(20,83,45,0.2)', background: '#fff',
+  },
+  formSecondaryBtn: {
+    padding: '10px 16px', borderRadius: '10px', border: '1px solid rgba(20,83,45,0.25)', background: 'transparent',
+    color: 'var(--color-forest)', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  formLinkBtn: {
+    marginTop: '10px', width: '100%', textAlign: 'center', background: 'none', border: 'none',
+    color: 'var(--color-marigold-dark)', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  formToggleBtn: {
+    padding: '8px 14px', borderRadius: '999px', border: '1px solid rgba(20,83,45,0.2)', background: '#fff',
+    color: 'var(--color-charcoal)', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
+  },
+  formToggleBtnActive: {
+    background: 'var(--color-forest)', color: 'var(--color-cream)', borderColor: 'var(--color-forest)', fontWeight: 700,
   },
   browseSearchRow: {
     display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid rgba(20,83,45,0.2)',
