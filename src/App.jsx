@@ -155,6 +155,36 @@ function Welcome() {
   }
 }
 
+// Eligibility criteria / documents required can come back from the database
+// as an array, a plain object, or a single string - this renders whichever
+// shape shows up as something readable, without needing a network call.
+function FormattedField({ value }) {
+  if (value === null || value === undefined || value === '') {
+    return <span style={{ color: 'var(--color-charcoal-soft)' }}>Not specified</span>
+  }
+  if (Array.isArray(value)) {
+    return (
+      <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+        {value.map((item, i) => (
+          <li key={i} style={{ marginBottom: '2px' }}>{typeof item === 'object' ? JSON.stringify(item) : String(item)}</li>
+        ))}
+      </ul>
+    )
+  }
+  if (typeof value === 'object') {
+    return (
+      <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+        {Object.entries(value).map(([key, val]) => (
+          <li key={key} style={{ marginBottom: '2px' }}>
+            <strong>{key.replace(/_/g, ' ')}:</strong> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  return <span>{String(value)}</span>
+}
+
 export default function App() {
   const [started, setStarted] = useState(false)
   const [pendingOpener, setPendingOpener] = useState(null)
@@ -168,6 +198,7 @@ export default function App() {
   const [showApplyForm, setShowApplyForm] = useState(false)
   const [showBrowseSchemes, setShowBrowseSchemes] = useState(false)
   const [schemeSearch, setSchemeSearch] = useState('')
+  const [viewingScheme, setViewingScheme] = useState(null)
   const [isListening, setIsListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState('en-IN')
   const [speakEnabled, setSpeakEnabled] = useState(false)
@@ -301,8 +332,15 @@ export default function App() {
 
   function handleAskAboutScheme(scheme) {
     setShowBrowseSchemes(false)
+    setViewingScheme(null)
     setIsMobileNavOpen(false)
     handleSend(`Tell me more about ${scheme.scheme_name} and whether I might be eligible.`)
+  }
+
+  function openSchemeDetail(scheme) {
+    setShowBrowseSchemes(false)
+    setIsMobileNavOpen(false)
+    setViewingScheme(scheme)
   }
 
   function handleMicClick() {
@@ -501,13 +539,15 @@ export default function App() {
           {error && <div style={styles.errorNote}>⚠️ {error}</div>}
           {!isOnline && schemes.length > 0 && (
             <div style={styles.offlineSchemeList}>
-              <p style={styles.offlineListTitle}>Saved schemes you can browse offline:</p>
+              <p style={styles.offlineListTitle}>Saved schemes you can browse offline — tap one for eligibility & how to apply:</p>
               {schemes.map((s) => (
-                <div key={s.id} style={styles.offlineSchemeItem}>
-                  <strong>{s.scheme_name}</strong>
-                  <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
-                  <div>{s.description}</div>
-                </div>
+                <button key={s.id} className="ym-scheme-row" style={styles.offlineSchemeItem} onClick={() => openSchemeDetail(s)}>
+                  <span style={{ display: 'block' }}>
+                    <strong>{s.scheme_name}</strong>
+                    <div style={styles.offlineSchemeCategory}>{s.category} · {s.level}</div>
+                    <div>{s.description}</div>
+                  </span>
+                </button>
               ))}
             </div>
           )}
@@ -560,7 +600,7 @@ export default function App() {
             <p style={{ fontSize: '12.5px', color: 'var(--color-charcoal-soft)' }}>No schemes loaded yet.</p>
           ) : (
             popularSchemes.map((s) => (
-              <button key={s.id} className="ym-scheme-row" onClick={() => handleAskAboutScheme(s)}>
+              <button key={s.id} className="ym-scheme-row" onClick={() => openSchemeDetail(s)}>
                 <span style={styles.schemeRowDot} />
                 <span>
                   <span style={styles.schemeRowName}>{s.scheme_name}</span>
@@ -605,7 +645,7 @@ export default function App() {
                 </p>
               ) : (
                 filteredSchemes.map((s) => (
-                  <button key={s.id} className="ym-scheme-row" style={styles.browseRow} onClick={() => handleAskAboutScheme(s)}>
+                  <button key={s.id} className="ym-scheme-row" style={styles.browseRow} onClick={() => openSchemeDetail(s)}>
                     <span style={styles.schemeRowDot} />
                     <span>
                       <span style={styles.schemeRowName}>{s.scheme_name}</span>
@@ -616,6 +656,59 @@ export default function App() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {viewingScheme && (
+        <div style={styles.overlay} onClick={() => setViewingScheme(null)}>
+          <div style={styles.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>{viewingScheme.scheme_name}</h2>
+              <button style={styles.browseCloseBtn} onClick={() => setViewingScheme(null)}>
+                <CloseIcon size={17} />
+              </button>
+            </div>
+            <div style={styles.detailBody}>
+              {!isOnline && (
+                <div style={styles.detailOfflineNote}>
+                  Showing details saved on your device. Reconnect to ask Yojana Mitra follow-up questions in chat.
+                </div>
+              )}
+              <div style={styles.detailMeta}>
+                {viewingScheme.category} · {viewingScheme.level}
+                {viewingScheme.scheme_name_hindi ? ` · ${viewingScheme.scheme_name_hindi}` : ''}
+              </div>
+
+              {viewingScheme.description && (
+                <p style={styles.detailParagraph}>{viewingScheme.description}</p>
+              )}
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Benefits</div>
+                <FormattedField value={viewingScheme.benefits} />
+              </div>
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Who's eligible</div>
+                <FormattedField value={viewingScheme.eligibility_criteria} />
+              </div>
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>Documents needed</div>
+                <FormattedField value={viewingScheme.documents_required} />
+              </div>
+
+              <div style={styles.detailSection}>
+                <div style={styles.detailSectionTitle}>How to apply</div>
+                <FormattedField value={viewingScheme.how_to_apply} />
+              </div>
+            </div>
+            {isOnline && (
+              <button className="ym-cta" style={styles.detailAskBtn} onClick={() => handleAskAboutScheme(viewingScheme)}>
+                Ask Yojana Mitra about this in chat
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -714,6 +807,24 @@ const styles = {
   browseHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
   browseTitle: { margin: 0, fontSize: '18px', color: 'var(--color-forest)', fontWeight: 700 },
   browseCloseBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-charcoal-soft)' },
+  detailModal: {
+    background: 'var(--color-cream)', borderRadius: '16px', padding: '18px', maxWidth: '520px', width: '100%',
+    maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body)',
+  },
+  detailBody: { overflowY: 'auto', paddingRight: '4px' },
+  detailOfflineNote: {
+    background: '#f5e6c8', color: '#6b4d0f', fontSize: '12.5px', padding: '9px 12px',
+    borderRadius: '10px', marginBottom: '12px', lineHeight: 1.45,
+  },
+  detailMeta: { fontSize: '12.5px', color: 'var(--color-charcoal-soft)', textTransform: 'capitalize', marginBottom: '8px' },
+  detailParagraph: { fontSize: '13.5px', lineHeight: 1.55, margin: '0 0 14px' },
+  detailSection: { marginBottom: '14px', fontSize: '13.5px', lineHeight: 1.5 },
+  detailSectionTitle: { fontSize: '12.5px', fontWeight: 700, color: 'var(--color-forest)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '3px' },
+  detailAskBtn: {
+    marginTop: '10px', width: '100%', textAlign: 'center', padding: '12px', borderRadius: '12px',
+    border: 'none', background: 'var(--color-forest)', color: 'var(--color-cream)', fontSize: '14px',
+    fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+  },
   browseSearchRow: {
     display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid rgba(20,83,45,0.2)',
     borderRadius: '10px', padding: '9px 12px', marginBottom: '10px',
@@ -752,10 +863,20 @@ const styles = {
     color: 'var(--color-forest)',
   },
   offlineSchemeItem: {
+    display: 'block',
+    width: '100%',
     padding: '8px 0',
     borderTop: '1px solid rgba(20,83,45,0.08)',
+    borderLeft: 'none',
+    borderRight: 'none',
+    borderBottom: 'none',
+    background: 'transparent',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
     fontSize: '13.5px',
     lineHeight: 1.45,
+    color: 'inherit',
   },
   offlineSchemeCategory: {
     fontSize: '11.5px',
