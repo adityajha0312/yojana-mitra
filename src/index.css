@@ -179,6 +179,7 @@ body {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr) 260px;
   height: 100vh;
+  height: 100dvh;
   background: var(--color-cream);
 }
 
