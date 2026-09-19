@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { fetchAllSchemes } from './lib/supabase'
 import { askGemini } from './lib/gemini'
 import { startListening, speakText, stopSpeaking, isVoiceInputSupported, isVoiceOutputSupported } from './lib/speech'
-import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache } from './lib/offline'
+import { subscribeToConnectionStatus, isCurrentlyOnline, getCacheAge, getSchemesFromCache, getSavedSchemeIds, toggleSavedScheme } from './lib/offline'
 import Logo from './Logo'
 import {
   MicIcon, StopIcon, SpeakerOnIcon, SpeakerOffIcon, MenuIcon, CloseIcon, PlusChatIcon,
@@ -199,6 +199,8 @@ export default function App() {
   const [showBrowseSchemes, setShowBrowseSchemes] = useState(false)
   const [schemeSearch, setSchemeSearch] = useState('')
   const [viewingScheme, setViewingScheme] = useState(null)
+  const [savedSchemeIds, setSavedSchemeIds] = useState(() => getSavedSchemeIds())
+  const [showSavedSchemes, setShowSavedSchemes] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState('en-IN')
   const [speakEnabled, setSpeakEnabled] = useState(false)
@@ -339,8 +341,15 @@ export default function App() {
 
   function openSchemeDetail(scheme) {
     setShowBrowseSchemes(false)
+    setShowSavedSchemes(false)
     setIsMobileNavOpen(false)
     setViewingScheme(scheme)
+  }
+
+  function handleToggleSaved(scheme) {
+    const nowSaved = toggleSavedScheme(scheme.id)
+    setSavedSchemeIds(getSavedSchemeIds())
+    showToast(nowSaved ? 'Saved for later' : 'Removed from saved')
   }
 
   function handleMicClick() {
@@ -384,6 +393,7 @@ export default function App() {
     s.scheme_name.toLowerCase().includes(schemeSearch.toLowerCase())
   )
   const popularSchemes = schemes.slice(0, 5)
+  const savedSchemesList = schemes.filter((s) => savedSchemeIds.includes(s.id))
 
   return (
     <div className="ym-shell">
@@ -413,7 +423,7 @@ export default function App() {
         <button className="ym-nav-item" onClick={() => { setShowApplyForm(true); setIsMobileNavOpen(false) }}>
           <DocumentIcon size={16} /> My Applications
         </button>
-        <button className="ym-nav-item" onClick={() => handleComingSoon('Saved Schemes')}>
+        <button className="ym-nav-item" onClick={() => { setShowSavedSchemes(true); setIsMobileNavOpen(false) }}>
           <BookmarkIcon size={16} /> Saved Schemes
         </button>
 
@@ -660,14 +670,53 @@ export default function App() {
         </div>
       )}
 
+      {showSavedSchemes && (
+        <div style={styles.overlay} onClick={() => setShowSavedSchemes(false)}>
+          <div style={styles.browseModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.browseHeader}>
+              <h2 style={styles.browseTitle}>Saved Schemes</h2>
+              <button style={styles.browseCloseBtn} onClick={() => setShowSavedSchemes(false)}>
+                <CloseIcon size={17} />
+              </button>
+            </div>
+            <div style={styles.browseList}>
+              {savedSchemesList.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--color-charcoal-soft)', padding: '12px 0' }}>
+                  Nothing saved yet — open any scheme and tap "Save" to keep it here for later, even offline.
+                </p>
+              ) : (
+                savedSchemesList.map((s) => (
+                  <button key={s.id} className="ym-scheme-row" style={styles.browseRow} onClick={() => openSchemeDetail(s)}>
+                    <span style={styles.schemeRowDot} />
+                    <span>
+                      <span style={styles.schemeRowName}>{s.scheme_name}</span>
+                      <span style={styles.schemeRowCategory}>{s.category} · {s.level}</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {viewingScheme && (
         <div style={styles.overlay} onClick={() => setViewingScheme(null)}>
           <div style={styles.detailModal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.browseHeader}>
               <h2 style={styles.browseTitle}>{viewingScheme.scheme_name}</h2>
-              <button style={styles.browseCloseBtn} onClick={() => setViewingScheme(null)}>
-                <CloseIcon size={17} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  style={styles.saveIconBtn}
+                  onClick={() => handleToggleSaved(viewingScheme)}
+                  title={savedSchemeIds.includes(viewingScheme.id) ? 'Remove from saved' : 'Save for later'}
+                >
+                  <BookmarkIcon size={18} color="var(--color-forest)" filled={savedSchemeIds.includes(viewingScheme.id)} />
+                </button>
+                <button style={styles.browseCloseBtn} onClick={() => setViewingScheme(null)}>
+                  <CloseIcon size={17} />
+                </button>
+              </div>
             </div>
             <div style={styles.detailBody}>
               {!isOnline && (
@@ -807,6 +856,10 @@ const styles = {
   browseHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
   browseTitle: { margin: 0, fontSize: '18px', color: 'var(--color-forest)', fontWeight: 700 },
   browseCloseBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-charcoal-soft)' },
+  saveIconBtn: {
+    background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex',
+    alignItems: 'center', justifyContent: 'center', padding: '4px',
+  },
   detailModal: {
     background: 'var(--color-cream)', borderRadius: '16px', padding: '18px', maxWidth: '520px', width: '100%',
     maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body)',
