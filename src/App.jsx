@@ -843,7 +843,7 @@ const styles = {
     padding: '7px 14px', background: 'var(--color-forest-light)', color: 'var(--color-cream)',
     fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
   },
-  mainCol: { display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', background: 'var(--color-cream)' },
+  mainCol: { display: 'flex', flexDirection: 'column', minWidth: 0, height: '100dvh', background: 'var(--color-cream)' },
   mobileMenuBtn: {
     display: 'none', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', marginRight: '2px',
   },
