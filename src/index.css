@@ -179,7 +179,7 @@ body {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr) 260px;
   height: 100vh;
-  height: 100dvh;
+  height: 100dvh; /* dvh accounts for mobile browser UI/gesture bar; vh above is the fallback */
   background: var(--color-cream);
 }
 
@@ -235,4 +235,20 @@ body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
-
+/* ---- Large text accessibility mode (Settings > Text size) ---- */
+.ym-shell.ym-text-large .ym-bubble {
+  font-size: 17px !important;
+  line-height: 1.65 !important;
+}
+.ym-shell.ym-text-large .ym-chat-input {
+  font-size: 17px !important;
+}
+.ym-shell.ym-text-large .ym-nav-item {
+  font-size: 15px !important;
+}
+.ym-shell.ym-text-large .ym-title-text {
+  font-size: 19px !important;
+}
+.ym-shell.ym-text-large .ym-subtitle-text {
+  font-size: 13px !important;
+}
