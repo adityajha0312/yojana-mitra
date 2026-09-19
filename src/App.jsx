@@ -1033,6 +1033,7 @@ const styles = {
     display: 'flex',
     gap: '8px',
     padding: '12px',
+    paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
     borderTop: '1px solid rgba(20,83,45,0.12)',
     background: '#ffffff',
   },
