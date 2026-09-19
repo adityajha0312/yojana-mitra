@@ -56,3 +56,33 @@ export function subscribeToConnectionStatus(onChange) {
 export function isCurrentlyOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true
 }
+
+// Saved/bookmarked schemes - stored by scheme id, works fully offline since
+// it never touches the network. Kept separate from the scheme cache above
+// so a saved list survives even if the cache is later cleared or refreshed.
+const SAVED_SCHEMES_KEY = 'yojana_mitra_saved_scheme_ids'
+
+export function getSavedSchemeIds() {
+  try {
+    const raw = localStorage.getItem(SAVED_SCHEMES_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch (e) {
+    return []
+  }
+}
+
+export function isSchemeSaved(schemeId) {
+  return getSavedSchemeIds().includes(schemeId)
+}
+
+export function toggleSavedScheme(schemeId) {
+  const current = getSavedSchemeIds()
+  const isSaved = current.includes(schemeId)
+  const next = isSaved ? current.filter((id) => id !== schemeId) : [...current, schemeId]
+  try {
+    localStorage.setItem(SAVED_SCHEMES_KEY, JSON.stringify(next))
+  } catch (e) {
+    console.warn('Could not save scheme locally:', e)
+  }
+  return !isSaved
+}
