@@ -160,10 +160,52 @@ HOW TO RESPOND:
 6. Stay strictly in scope: you only help with Indian government schemes and the person's eligibility for them. If asked something unrelated (celebrities, general trivia, coding help, other countries, etc.), do NOT answer it - politely say that's outside what you help with, briefly state your actual purpose, and ask if they'd like help finding a scheme instead. Never answer the off-topic question itself, even partially.`
 }
 
-function Welcome() {
+// Static UI text (greeting, status labels, input hints) in each supported
+// language - separate from the Gemini system prompt, which already handles
+// matching whatever language the person actually types.
+const UI_TEXT = {
+  'en-IN': {
+    welcome: "Namaste! I'm Yojana Mitra. Tell me a bit about yourself — your occupation, age, or situation — and I'll help you find government schemes you may be eligible for.",
+    online: 'Online',
+    offline: 'Offline',
+    placeholderIdle: "Type your message... (e.g. 'I am a farmer with 2 acres of land')",
+    placeholderOffline: 'Reconnect to internet to keep chatting...',
+    placeholderListening: 'Listening... speak now',
+  },
+  'hi-IN': {
+    welcome: 'नमस्ते! मैं योजना मित्र हूँ। मुझे अपने बारे में थोड़ा बताएं — आपका व्यवसाय, उम्र, या स्थिति — और मैं आपको उन सरकारी योजनाओं को खोजने में मदद करूंगा जिनके लिए आप पात्र हो सकते हैं।',
+    online: 'ऑनलाइन',
+    offline: 'ऑफलाइन',
+    placeholderIdle: "अपना संदेश लिखें... (उदाहरण: 'मैं 2 एकड़ जमीन वाला किसान हूं')",
+    placeholderOffline: 'बातचीत जारी रखने के लिए इंटरनेट से दोबारा जुड़ें...',
+    placeholderListening: 'सुन रहा हूं... अब बोलें',
+  },
+  'mr-IN': {
+    welcome: 'नमस्कार! मी योजना मित्र आहे. मला तुमच्याबद्दल थोडं सांगा — तुमचा व्यवसाय, वय किंवा परिस्थिती — आणि मी तुम्हाला पात्र असलेल्या सरकारी योजना शोधण्यात मदत करेन.',
+    online: 'ऑनलाइन',
+    offline: 'ऑफलाइन',
+    placeholderIdle: "तुमचा संदेश टाइप करा... (उदा. 'मी 2 एकर जमीन असलेला शेतकरी आहे')",
+    placeholderOffline: 'गप्पा सुरू ठेवण्यासाठी इंटरनेटशी पुन्हा कनेक्ट करा...',
+    placeholderListening: 'ऐकत आहे... आता बोला',
+  },
+  'ta-IN': {
+    welcome: 'வணக்கம்! நான் யோஜனா மித்ரா. உங்களைப் பற்றி கொஞ்சம் சொல்லுங்கள் — உங்கள் தொழில், வயது அல்லது சூழ்நிலை — நீங்கள் தகுதி பெறக்கூடிய அரசு திட்டங்களைக் கண்டறிய நான் உதவுகிறேன்.',
+    online: 'ஆன்லைன்',
+    offline: 'ஆஃப்லைன்',
+    placeholderIdle: "உங்கள் செய்தியை தட்டச்சு செய்யவும்... (எ.கா. 'நான் 2 ஏக்கர் நிலம் உள்ள விவசாயி')",
+    placeholderOffline: 'உரையாடலைத் தொடர இணையத்துடன் மீண்டும் இணையவும்...',
+    placeholderListening: 'கேட்கிறேன்... இப்போது பேசுங்கள்',
+  },
+}
+
+function t(lang, key) {
+  return (UI_TEXT[lang] && UI_TEXT[lang][key]) || UI_TEXT['en-IN'][key]
+}
+
+function Welcome(lang) {
   return {
     role: 'assistant',
-    text: "Namaste! I'm Yojana Mitra. Tell me a bit about yourself — your occupation, age, or situation — and I'll help you find government schemes you may be eligible for.",
+    text: t(lang, 'welcome'),
   }
 }
 
@@ -201,7 +243,7 @@ export default function App() {
   const [started, setStarted] = useState(false)
   const [pendingOpener, setPendingOpener] = useState(null)
   const [schemes, setSchemes] = useState(() => getSchemesFromCache() || [])
-  const [messages, setMessages] = useState([Welcome()])
+  const [messages, setMessages] = useState(() => [Welcome(getSettings().defaultVoiceLang)])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingSchemes, setLoadingSchemes] = useState(true)
@@ -296,6 +338,19 @@ export default function App() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [showLangMenu])
 
+  // If the person switches language before the conversation has really
+  // started (still just showing the initial greeting), update that greeting
+  // to match - so picking Hindi/Marathi/Tamil actually changes what's on
+  // screen, not just the voice.
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].role === 'assistant') {
+        return [Welcome(voiceLang)]
+      }
+      return prev
+    })
+  }, [voiceLang])
+
   // If the user started the chat from a landing-page category card (or a
   // quick chip), fire off that opener as their first message as soon as
   // the chat is up and the scheme list has loaded.
@@ -347,7 +402,7 @@ export default function App() {
   }
 
   function handleClearChat() {
-    setMessages([Welcome()])
+    setMessages([Welcome(voiceLang)])
     setError(null)
     setShowLinks(false)
     setIsMobileNavOpen(false)
@@ -529,7 +584,7 @@ export default function App() {
               <h1 className="ym-title-text" style={styles.title}>Yojana Mitra</h1>
               <p className="ym-subtitle-text" style={styles.subtitle}>
                 <span style={{ ...styles.statusDot, background: isOnline ? '#3fbf6b' : '#c97f1e' }} />
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? t(voiceLang, 'online') : t(voiceLang, 'offline')}
               </p>
             </div>
           </div>
@@ -660,7 +715,7 @@ export default function App() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={!isOnline ? 'Reconnect to internet to keep chatting...' : isListening ? 'Listening... speak now' : "Type your message... (e.g. 'I am a farmer with 2 acres of land')"}
+            placeholder={!isOnline ? t(voiceLang, 'placeholderOffline') : isListening ? t(voiceLang, 'placeholderListening') : t(voiceLang, 'placeholderIdle')}
             rows={2}
             disabled={loadingSchemes || !isOnline}
           />
