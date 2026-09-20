@@ -48,7 +48,9 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
   }
 
   // On mount: restore any saved draft (from a previous session where
-  // connection dropped mid-process) so nothing the user did is lost.
+  // connection dropped mid-process) so nothing the user did is lost -
+  // this includes both the uploaded documents AND any field values
+  // (auto-extracted or manually typed) that were saved before the app closed.
   useEffect(() => {
     loadDraft().then((draft) => {
       if (draft && draft.files && draft.files.length > 0) {
@@ -56,11 +58,31 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
         setFiles(draft.files)
         setPreviews(draft.files.map((f) => URL.createObjectURL(f)))
         setConsentGiven(true)
-        setOfflinePending(true)
         setResumedNotice(true)
+        if (draft.fields) {
+          // Extraction had already happened before the connection dropped -
+          // restore it as-is, including any manual edits. No need to
+          // re-extract, so we deliberately do NOT set offlinePending here.
+          setFields(draft.fields)
+          setNotes(draft.notes || null)
+        } else {
+          // Extraction never happened yet - resume it automatically once online.
+          setOfflinePending(true)
+        }
       }
     })
   }, [])
+
+  // Keep the saved draft continuously up to date with whatever is in the
+  // form right now - including manually-typed field values - so a dropped
+  // connection (or a closed tab) never loses work that's already been done.
+  useEffect(() => {
+    if (!consentGiven || files.length === 0 || !fields) return
+    const timer = setTimeout(() => {
+      saveDraft({ schemeId: selectedSchemeId, files, consentGiven: true, fields, notes })
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [fields, notes, selectedSchemeId, files, consentGiven])
 
   // Track connection status, and automatically resume a pending offline
   // extraction the moment the connection comes back.
@@ -72,7 +94,7 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
   }, [])
 
   useEffect(() => {
-    if (isOnline && offlinePending && files.length > 0 && selectedScheme) {
+    if (isOnline && offlinePending && files.length > 0 && selectedScheme && !fields) {
       setOfflinePending(false)
       runExtraction(files, selectedScheme)
     }
@@ -107,9 +129,21 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
         ? schemeToUse.documents_required
         : [schemeToUse.documents_required]
       const result = await extractDocumentFields(images, schemeToUse.scheme_name, docs)
-      setFields(result.extracted || {})
+      const newlyExtracted = result.extracted || {}
+      // Merge rather than overwrite: if a field already has a value - whether
+      // typed in manually or from an earlier extraction - keep it. Only fill
+      // in fields that are still empty. This is what protects manually-typed
+      // details from being wiped out if extraction runs again later (e.g.
+      // after reconnecting, or if the person re-scans their documents).
+      setFields((prev) => {
+        if (!prev) return newlyExtracted
+        const merged = { ...newlyExtracted }
+        for (const key of Object.keys(prev)) {
+          if (prev[key]) merged[key] = prev[key]
+        }
+        return merged
+      })
       setNotes(result.notes || null)
-      await clearDraft()
       setResumedNotice(false)
     } catch (err) {
       setError(err.message)
@@ -123,10 +157,15 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
 
     if (!isCurrentlyOnline()) {
       // No internet right now - save everything locally instead of failing,
-      // and automatically resume the moment the connection returns.
-      await saveDraft({ schemeId: selectedSchemeId, files, consentGiven: true })
-      setOfflinePending(true)
-      setError("You're offline - your scheme selection and photos are saved. I'll finish reading them automatically as soon as you're back online.")
+      // including any fields already filled in, and automatically resume
+      // extraction (if it hasn't happened yet) the moment connection returns.
+      await saveDraft({ schemeId: selectedSchemeId, files, consentGiven: true, fields, notes })
+      if (!fields) {
+        setOfflinePending(true)
+        setError("You're offline - your scheme selection and photos are saved. I'll finish reading them automatically as soon as you're back online.")
+      } else {
+        setError("You're offline - your progress, including everything you've filled in, is saved on this device.")
+      }
       return
     }
 
@@ -160,6 +199,7 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
     a.download = `${selectedScheme.id}-application-summary.txt`
     a.click()
     URL.revokeObjectURL(url)
+    clearDraft()
   }
 
   return (
@@ -195,7 +235,9 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
         <fieldset disabled={!consentGiven} style={styles.fieldset}>
         {resumedNotice && (
           <p style={styles.notesText}>
-            Restored your saved documents from before - {isOnline ? 'finishing up now...' : "waiting for internet to continue."}
+            {fields
+              ? "Restored your saved progress from before, including everything you'd already filled in."
+              : `Restored your saved documents from before - ${isOnline ? 'finishing up now...' : 'waiting for internet to continue.'}`}
           </p>
         )}
 
@@ -240,9 +282,13 @@ export default function ApplicationForm({ schemes, onClose, onRetryLoadSchemes }
           className="ym-cta"
           style={styles.extractBtn}
           onClick={handleExtract}
-          disabled={files.length === 0 || extracting}
+          disabled={files.length === 0 || extracting || (!!fields && !isOnline)}
         >
-          {extracting ? 'Reading documents...' : !isOnline ? 'Save for when I\'m back online' : 'Extract & Fill Details'}
+          {extracting
+            ? 'Reading documents...'
+            : fields
+              ? (isOnline ? 'Re-scan Documents (keeps your filled-in details)' : "Offline — your details are saved on this device")
+              : (!isOnline ? "Save for when I'm back online" : 'Extract & Fill Details')}
         </button>
 
         {error && <p style={styles.errorText}>⚠️ {error}</p>}
